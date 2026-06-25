@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>無線電中繼台電源監控</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0f1117;color:#e8e8e8;min-height:100vh}
+.topbar{background:#16181f;border-bottom:1px solid #2a2d38;padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.logo{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;color:#fff}
+.logo-icon{width:28px;height:28px;background:#1d4ed8;border-radius:7px;display:flex;align-items:center;justify-content:center}
+.logo-icon svg{width:16px;height:16px;stroke:#93c5fd;stroke-width:2;fill:none}
+.live-badge{display:flex;align-items:center;gap:6px;font-size:11px;color:#4ade80;background:#052e16;border:1px solid #14532d;padding:3px 10px;border-radius:99px}
+.live-dot{width:6px;height:6px;border-radius:50%;background:#4ade80;animation:blink 1.8s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.topbar-right{display:flex;align-items:center;gap:14px}
+.update-txt{font-size:11px;color:#6b7280}
+.refresh{background:#1e2130;border:1px solid #374151;border-radius:6px;padding:4px 12px;font-size:11px;color:#9ca3af;cursor:pointer}
+.refresh:hover{background:#252840}
+.main{max-width:1000px;margin:0 auto;padding:20px 16px}
+.sec-label{font-size:10px;font-weight:600;letter-spacing:.1em;color:#4b5563;text-transform:uppercase;margin-bottom:12px}
+.station-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:20px}
+.scard{background:#16181f;border:1px solid #2a2d38;border-radius:14px;padding:18px 20px;position:relative;overflow:hidden}
+.scard.ok{border-color:#14532d}
+.scard.warn{border-color:#7f1d1d}
+.scard.offline{border-color:#374151}
+.scard-accent{position:absolute;top:0;left:0;right:0;height:3px;border-radius:14px 14px 0 0}
+.accent-ok{background:#16a34a}
+.accent-warn{background:#dc2626}
+.accent-off{background:#374151}
+.scard-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
+.scard-name{font-size:13px;font-weight:600;color:#e5e7eb}
+.scard-sub{font-size:11px;color:#6b7280;margin-top:2px}
+.sbadge{font-size:10px;font-weight:600;padding:3px 9px;border-radius:99px}
+.sbadge-ok{background:#052e16;color:#4ade80;border:1px solid #14532d}
+.sbadge-warn{background:#450a0a;color:#f87171;border:1px solid #7f1d1d}
+.sbadge-off{background:#1c1c1c;color:#6b7280;border:1px solid #374151}
+.gauge-wrap{display:flex;align-items:center;gap:16px;margin-bottom:14px}
+.gauge-svg{width:80px;height:80px;flex-shrink:0}
+.voltage-big{font-size:34px;font-weight:700;line-height:1;letter-spacing:-1px}
+.voltage-big.ok{color:#4ade80}
+.voltage-big.warn{color:#f87171}
+.voltage-big.off{color:#6b7280}
+.vunit{font-size:14px;color:#6b7280;margin-left:2px}
+.vmeta{font-size:11px;color:#6b7280;margin-top:4px}
+.vmeta b{color:#9ca3af}
+.stats-row{display:flex;gap:8px}
+.stat-mini{flex:1;background:#0f1117;border:1px solid #2a2d38;border-radius:8px;padding:8px 10px}
+.stat-mini-label{font-size:10px;color:#6b7280;margin-bottom:3px}
+.stat-mini-val{font-size:13px;font-weight:600;color:#e5e7eb}
+.chart-card{background:#16181f;border:1px solid #2a2d38;border-radius:14px;padding:18px 20px;margin-bottom:20px}
+.chart-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+.legend{display:flex;gap:14px;flex-wrap:wrap}
+.leg-item{display:flex;align-items:center;gap:6px;font-size:11px;color:#9ca3af}
+.leg-dot{width:18px;height:3px;border-radius:2px}
+.chart-wrap{position:relative;height:200px}
+.alerts-card{background:#16181f;border:1px solid #2a2d38;border-radius:14px;padding:18px 20px;margin-bottom:20px}
+#alertSelect{width:100%;background:#0f1117;border:1px solid #374151;border-radius:8px;color:#e5e7eb;font-size:13px;padding:10px 14px;outline:none;cursor:pointer}
+#alertSelect option{background:#1a1d27;color:#e5e7eb}
+.ai-section{background:#16181f;border:1px solid #2a2d38;border-radius:14px;overflow:hidden;margin-bottom:20px}
+.ai-section-top{padding:16px 20px;border-bottom:1px solid #2a2d38;display:flex;align-items:center;gap:12px}
+.ai-section-icon{width:36px;height:36px;background:#0c0a1e;border:1px solid #3730a3;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.ai-section-title{font-size:14px;font-weight:600;color:#e5e7eb}
+.ai-section-hint{font-size:11px;color:#6b7280;margin-top:2px}
+.ai-chips{display:flex;gap:8px;padding:12px 20px;border-bottom:1px solid #1e2130;flex-wrap:wrap;background:#0f1117}
+.ai-chip{font-size:11px;padding:5px 12px;border-radius:99px;border:1px solid #374151;color:#9ca3af;cursor:pointer;background:transparent;transition:all .15s;white-space:nowrap}
+.ai-chip:hover{border-color:#4f46e5;color:#a5b4fc}
+.ai-chip.active{background:#1e1b4b;border-color:#4f46e5;color:#c7d2fe}
+.ai-empty{text-align:center;padding:28px 0;color:#4b5563;font-size:13px}
+.ai-empty-icon{font-size:28px;margin-bottom:8px;opacity:.4}
+.result-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;gap:8px}
+.result-title{font-size:14px;font-weight:600;color:#e5e7eb}
+.result-time{font-size:11px;color:#6b7280;margin-top:3px}
+.risk-pill{font-size:11px;font-weight:600;padding:4px 12px;border-radius:99px;white-space:nowrap;flex-shrink:0}
+.risk-low{background:#052e16;color:#4ade80;border:1px solid #14532d}
+.risk-mid{background:#451a03;color:#fb923c;border:1px solid #92400e}
+.risk-high{background:#450a0a;color:#f87171;border:1px solid #7f1d1d}
+.meta-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.meta-block{background:#0f1117;border:1px solid #2a2d38;border-radius:9px;padding:10px 12px}
+.meta-block-label{font-size:10px;color:#6b7280;margin-bottom:5px;letter-spacing:.04em}
+.meta-block-val{font-size:12px;color:#d1d5db;line-height:1.55}
+.diag-box{background:#0c0a1e;border:1px solid #312e81;border-radius:9px;padding:14px 16px}
+.diag-box-label{font-size:10px;font-weight:600;color:#818cf8;letter-spacing:.06em;margin-bottom:9px;display:flex;align-items:center;gap:6px}
+.diag-box-label::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:#4f46e5}
+.diag-text{font-size:13px;color:#c7d2fe;line-height:1.8}
+.action-row{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+.action-btn{font-size:11px;padding:5px 13px;border-radius:6px;border:1px solid #374151;color:#9ca3af;cursor:pointer;background:#16181f}
+.action-btn:hover{border-color:#4f46e5;color:#a5b4fc}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid #3730a3;border-top-color:#818cf8;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.footer{text-align:center;font-size:11px;color:#374151;margin-top:8px;padding-bottom:16px}
+.demo-bar{background:#1e1b4b;border-bottom:1px solid #312e81;text-align:center;padding:6px;font-size:11px;color:#818cf8}
+</style>
+</head>
+<body>
+
+<div class="demo-bar">&#128204; 展示模式 — 使用模擬資料，實際部署後將讀取 Google Sheets 即時資料</div>
+
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    </div>
+    無線電中繼台電源監控
+  </div>
+  <div class="topbar-right">
+    <div class="live-badge"><div class="live-dot"></div>即時監控中</div>
+    <span class="update-txt" id="lastUpdate">更新：2026-06-22 13:30:05</span>
+    <button class="refresh" onclick="init()">&#8635; 刷新</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="sec-label">站台即時狀態</div>
+  <div class="station-grid" id="stationGrid"></div>
+
+  <div class="chart-card">
+    <div class="chart-header">
+      <span class="sec-label" style="margin:0">24 小時電壓趨勢</span>
+      <div class="legend" id="chartLegend"></div>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="voltageChart" role="img" aria-label="24小時各站台電壓趨勢折線圖">電壓趨勢圖</canvas>
+    </div>
+  </div>
+
+  <div class="alerts-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span class="sec-label" style="margin:0">最近告警記錄</span>
+      <span style="font-size:11px;color:#4b5563">選擇後自動載入 AI 診斷 ↓</span>
+    </div>
+    <select id="alertSelect" onchange="selectAlert(this.value)">
+      <option value="" disabled selected>— 請選擇告警事件 —</option>
+    </select>
+  </div>
+
+  <div class="ai-section">
+    <div class="ai-section-top">
+      <div class="ai-section-icon">&#129302;</div>
+      <div>
+        <div class="ai-section-title">AI 智慧診斷分析</div>
+        <div class="ai-section-hint">選擇告警事件，AI 將自動研判原因與風險等級</div>
+      </div>
+    </div>
+    <div class="ai-chips" id="aiChips"></div>
+    <div id="aiPanel" style="padding:16px 20px">
+      <div class="ai-empty"><div class="ai-empty-icon">&#129302;</div>請從上方下拉選單選擇告警事件，查看 AI 診斷分析。</div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">每 5 分鐘自動更新 · AI 智慧診斷 · 無線電中繼台電源監控系統</div>
+
+<script>
+var chartInstance = null;
+var COLORS = ["#3b82f6","#ef4444","#f59e0b","#a78bfa"];
+var VMIN = 13.0, VMAX = 13.8;
+
+function genChart(base, count, dir) {
+  var now = new Date(2026, 5, 22, 13, 30);
+  var pts = [];
+  var v = base;
+  for (var i = count; i >= 0; i--) {
+    var t = new Date(now - i * 10 * 60000);
+    var hh = String(t.getHours()).padStart(2,"0");
+    var mm = String(t.getMinutes()).padStart(2,"0");
+    pts.push({ t: "2026-06-22 " + hh + ":" + mm + ":00", v: parseFloat(v.toFixed(2)) });
+    v += dir * (0.02 + Math.random() * 0.04);
+    v = Math.max(10.5, Math.min(14.5, v));
+  }
+  return pts;
+}
+
+var MOCK = {
+  voltageMin: 13.0, voltageMax: 13.8,
+  updated: "2026-06-22 13:30:05",
+  stations: [
+    { name:"無線電中繼台-A", voltage:13.6, status:"normal", trend:"穩定", lastTime:"2026-06-22 13:30:00", consecutive:0, dayMax:"13.8", dayMin:"12.1",
+      chart: genChart(13.8, 144, -0.005) },
+    { name:"無線電中繼台-德文", voltage:11.9, status:"abnormal", trend:"下降", lastTime:"2026-06-22 13:30:00", consecutive:6, dayMax:"13.7", dayMin:"11.9",
+      chart: genChart(13.7, 144, -0.015) }
+  ],
+  alerts: [
+    { device:"無線電中繼台-德文", type:"電壓過低", value:"11.9V", time:"2026-06-22 13:30:00" },
+    { device:"無線電中繼台-A",   type:"電壓過高", value:"14.5V", time:"2026-06-21 09:15:00" },
+    { device:"無線電中繼台-德文", type:"電壓過低", value:"12.3V", time:"2026-06-20 22:10:00" },
+    { device:"無線電中繼台-A",   type:"電壓過低", value:"12.1V", time:"2026-06-19 03:40:00" }
+  ]
+};
+
+var DIAGS = [
+  { risk:"高", time:"今日 13:30\n晚間（放電期間）",
+    volt:"11.9V（低於正常）\n趨勢：持續下降\n速率：0.38V/次",
+    cause:"放電速率異常偏高\n可能電池老化\n或設備異常耗電",
+    diagnosis:"雖然目前時間為夜間正常放電期間，但電壓從19:00的13.7V在短短90分鐘內降至11.9V，下降速率達0.38V/次，已明顯超過正常晚間放電速率（約0.10V/次）。研判原因為電池老化導致容量衰減，或中繼台設備出現異常高耗電情況，風險等級：高。建議盡快前往站台檢查電池健康狀況、實際容量，並確認是否有異常耗電設備，必要時更換電池。" },
+  { risk:"中", time:"昨日 09:15\n白天（充電期間）",
+    volt:"14.5V（高於正常）\n趨勢：持續上升\n速率：0.15V/次",
+    cause:"充電電壓超標\n充電控制器異常\n或參數設定錯誤",
+    diagnosis:"白天充電期間電壓持續攀升至14.5V，超出正常充電截止電壓13.8V，且上升趨勢未停止，研判為太陽能充電控制器的過充保護功能失效或參數設定不當。過充將加速電池損耗甚至造成安全風險，風險等級：中。建議盡快檢查充電控制器設定，確認過充保護閾值是否正確（建議14.4V以下），並在下次到站時現場測量充電電流。" },
+  { risk:"低", time:"前日 22:10\n晚間（放電期間）",
+    volt:"12.3V（低於正常）\n趨勢：緩慢下降\n速率：0.10V/次",
+    cause:"晚間正常放電循環\n符合太陽能特性\n次日應可回升",
+    diagnosis:"發生時間為22:10，屬晚間正常放電期間，且電壓下降速率為0.10V/次，符合正常太陽能蓄電池的晝夜放電特性。雖電壓12.3V低於告警閾值13.0V，但整體趨勢平緩，與正常晝夜循環一致，風險等級：低。建議持續觀察次日早晨充電後是否正常回升至13.5V以上，若仍無法回升再評估電池容量。" },
+  { risk:"高", time:"大前日 03:40\n凌晨（放電期間）",
+    volt:"12.1V（低於正常）\n趨勢：急速下降\n速率：0.45V/次",
+    cause:"凌晨異常急速放電\n電池可能嚴重衰減\n或設備突發故障",
+    diagnosis:"凌晨3:40電壓急降至12.1V，且下降速率達0.45V/次，遠超正常凌晨放電速率，此時段本應放電趨緩，異常急降高度疑似電池嚴重老化、內阻過大，或站台設備突發性異常耗電。風險等級：高。建議緊急安排人員到站確認，同時檢查設備運作狀況與電池實際電量，如確認電池老化應立即規劃更換。" }
+];
+
+var alertsCache = MOCK.alerts;
+
+function init() {
+  renderStations(MOCK.stations);
+  renderChart(MOCK.stations);
+  renderAlerts(MOCK.alerts);
+  renderAiChips(MOCK.alerts);
+}
+
+function renderStations(stations) {
+  var html = "";
+  stations.forEach(function(s) {
+    var abn = s.status === "abnormal";
+    var off = s.status === "offline";
+    var cls = off ? "offline" : abn ? "warn" : "ok";
+    var badge = off ? '<span class="sbadge sbadge-off">離線</span>'
+               : abn ? '<span class="sbadge sbadge-warn">電壓' + (s.voltage < VMIN ? "過低" : "過高") + '</span>'
+               : '<span class="sbadge sbadge-ok">正常</span>';
+    var accent = off ? "accent-off" : abn ? "accent-warn" : "accent-ok";
+    var vColor = off ? "off" : abn ? "warn" : "ok";
+    var range = VMAX - VMIN;
+    var ratio = Math.min(Math.max((s.voltage - VMIN) / range, 0), 1);
+    var arcLen = Math.round(ratio * 201);
+    var gaugeColor = off ? "#374151" : abn ? "#dc2626" : "#16a34a";
+    var gaugeLabel = off ? "離線" : abn ? "異常" : "正常";
+    var trendColor = s.trend === "下降" ? "#f87171" : s.trend === "上升" ? "#34d399" : "#9ca3af";
+    var trendArrow = s.trend === "下降" ? "↓" : s.trend === "上升" ? "↑" : "→";
+    html += '<div class="scard ' + cls + '">'
+      + '<div class="scard-accent ' + accent + '"></div>'
+      + '<div class="scard-top"><div>'
+      +   '<div class="scard-name">' + s.name + '</div>'
+      +   '<div class="scard-sub">' + formatTime(s.lastTime) + '</div>'
+      + '</div>' + badge + '</div>'
+      + '<div class="gauge-wrap">'
+      +   '<svg class="gauge-svg" viewBox="0 0 80 80">'
+      +     '<circle cx="40" cy="40" r="32" fill="none" stroke="#1e2130" stroke-width="6"/>'
+      +     '<circle cx="40" cy="40" r="32" fill="none" stroke="' + gaugeColor + '" stroke-width="6"'
+      +       ' stroke-dasharray="' + arcLen + ' ' + (201-arcLen) + '" stroke-dashoffset="42" stroke-linecap="round"/>'
+      +     '<text x="40" y="44" text-anchor="middle" font-size="10" fill="#4b5563">' + gaugeLabel + '</text>'
+      +   '</svg>'
+      +   '<div>'
+      +     '<div><span class="voltage-big ' + vColor + '">' + parseFloat(s.voltage).toFixed(1) + '</span><span class="vunit">V</span></div>'
+      +     '<div class="vmeta">正常範圍 <b>' + VMIN + '–' + VMAX + 'V</b></div>'
+      +     '<div class="vmeta" style="margin-top:4px">趨勢 <b style="color:' + trendColor + '">' + s.trend + ' ' + trendArrow + '</b></div>'
+      +   '</div>'
+      + '</div>'
+      + '<div class="stats-row">'
+      +   '<div class="stat-mini"><div class="stat-mini-label">今日最高</div><div class="stat-mini-val">' + s.dayMax + 'V</div></div>'
+      +   '<div class="stat-mini"><div class="stat-mini-label">今日最低</div><div class="stat-mini-val">' + s.dayMin + 'V</div></div>'
+      +   '<div class="stat-mini"><div class="stat-mini-label">連續異常</div><div class="stat-mini-val" style="color:' + (s.consecutive > 0 ? "#f87171" : "#4ade80") + '">' + s.consecutive + ' 次</div></div>'
+      + '</div></div>';
+  });
+  document.getElementById("stationGrid").innerHTML = html;
+}
+
+function renderChart(stations) {
+  var ctx = document.getElementById("voltageChart").getContext("2d");
+  if (chartInstance) chartInstance.destroy();
+  var legendHtml = "";
+  var datasets = stations.map(function(s, i) {
+    var color = COLORS[i % COLORS.length];
+    legendHtml += '<div class="leg-item"><div class="leg-dot" style="background:' + color + '"></div>' + s.name + '</div>';
+    return {
+      label: s.name,
+      data: (s.chart || []).map(function(p) { return { x: p.t, y: parseFloat(p.v.toFixed(2)) }; }),
+      borderColor: color, backgroundColor: "transparent",
+      borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.3, fill: false
+    };
+  });
+  legendHtml += '<div class="leg-item"><div class="leg-dot" style="background:#7f1d1d;border-top:1px dashed #ef4444;height:1px"></div>警戒線</div>';
+  document.getElementById("chartLegend").innerHTML = legendHtml;
+  chartInstance = new Chart(ctx, {
+    type: "line", data: { datasets: datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: "#16181f", borderColor: "#374151", borderWidth: 1,
+          titleColor: "#9ca3af", bodyColor: "#e5e7eb",
+          callbacks: { label: function(c) { return " " + c.dataset.label + "：" + parseFloat(c.parsed.y).toFixed(2) + " V"; } }
+        }
+      },
+      scales: {
+        x: { type:"category", ticks:{ maxTicksLimit:8, font:{size:10}, color:"#4b5563", maxRotation:0,
+          callback: function(val) { var l=this.getLabelForValue(val)||""; var p=l.split(" "); return p.length>1?p[1].substring(0,5):l.substring(0,5); }
+        }, grid:{color:"#1e2130"} },
+        y: { min:10, max:15.5, ticks:{font:{size:10},color:"#4b5563",callback:function(v){return v.toFixed(1)+"V";}}, grid:{color:"#1e2130"} }
+      }
+    }
+  });
+}
+
+function renderAlerts(alerts) {
+  var sel = document.getElementById("alertSelect");
+  sel.innerHTML = '<option value="" disabled selected>— 請選擇告警事件 —</option>';
+  alerts.forEach(function(a, i) {
+    var prefix = (a.type||"").indexOf("過低")>=0 ? "▼ " : (a.type||"").indexOf("過高")>=0 ? "▲ " : "✓ ";
+    var opt = document.createElement("option");
+    opt.value = i;
+    opt.textContent = prefix + (a.device||"") + "  " + (a.type||"") + " " + (a.value||"") + "  ·  " + formatTime(a.time);
+    sel.appendChild(opt);
+  });
+}
+
+function renderAiChips(alerts) {
+  var html = alerts.map(function(a, i) {
+    var label = (a.device||"").replace("無線電中繼台-","") + " · " + (a.type||"") + " · " + formatTime(a.time);
+    return '<div class="ai-chip" id="chip' + i + '" onclick="selectAlert(' + i + ')">' + label + '</div>';
+  }).join("");
+  document.getElementById("aiChips").innerHTML = html;
+}
+
+function selectAlert(i) {
+  i = parseInt(i);
+  if (isNaN(i)) return;
+  var sel = document.getElementById("alertSelect");
+  if (sel && sel.value != i) sel.value = i;
+  document.querySelectorAll(".ai-chip").forEach(function(c, j) {
+    c.className = "ai-chip" + (j === i ? " active" : "");
+  });
+  var a = alertsCache[i];
+  var d = DIAGS[i] || DIAGS[0];
+  if (!a) return;
+
+  document.getElementById("aiPanel").innerHTML =
+    '<div style="padding:0">'
+    + '<div class="result-header">'
+    +   '<div><div class="result-title">' + (a.device||"") + ' — ' + (a.type||"") + '</div>'
+    +   '<div class="result-time">' + (a.time||"") + '</div></div>'
+    +   '<span class="risk-pill risk-' + (d.risk==="高"?"high":d.risk==="低"?"low":"mid") + '">風險：' + d.risk + '</span>'
+    + '</div>'
+    + '<div class="meta-row">'
+    +   '<div class="meta-block"><div class="meta-block-label">發生時間</div><div class="meta-block-val">' + d.time.replace(/\n/g,"<br>") + '</div></div>'
+    +   '<div class="meta-block"><div class="meta-block-label">電壓數據</div><div class="meta-block-val">' + d.volt.replace(/\n/g,"<br>") + '</div></div>'
+    +   '<div class="meta-block"><div class="meta-block-label">原因研判</div><div class="meta-block-val">' + d.cause.replace(/\n/g,"<br>") + '</div></div>'
+    + '</div>'
+    + '<div class="diag-box">'
+    +   '<div class="diag-box-label">AI 完整分析</div>'
+    +   '<div class="diag-text">' + d.diagnosis + '</div>'
+    + '</div>'
+    + '<div class="action-row">'
+    +   '<button class="action-btn" onclick="selectAlert(' + i + ')">&#8635; 重新分析</button>'
+    + '</div>'
+    + '</div>';
+}
+
+function formatTime(t) {
+  if (!t) return "";
+  var s = t.toString(); var p = s.split(" ");
+  if (p.length >= 2) {
+    if (s.indexOf("2026-06-22") >= 0) return "今日 " + p[1].substring(0,5);
+    if (s.indexOf("2026-06-21") >= 0) return "昨日 " + p[1].substring(0,5);
+    return p[0].substring(5) + " " + p[1].substring(0,5);
+  }
+  return s.substring(0,16);
+}
+
+init();
+</script>
+</body>
+</html>

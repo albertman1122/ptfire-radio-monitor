@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>無線電中繼台電源監控</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0f1117;color:#e8e8e8;min-height:100vh}
+.topbar{background:#16181f;border-bottom:1px solid #2a2d38;padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.logo{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;color:#fff}
+.logo-icon{width:28px;height:28px;background:#1d4ed8;border-radius:7px;display:flex;align-items:center;justify-content:center}
+.logo-icon svg{width:16px;height:16px;stroke:#93c5fd;stroke-width:2;fill:none}
+.live-badge{display:flex;align-items:center;gap:6px;font-size:11px;color:#4ade80;background:#052e16;border:1px solid #14532d;padding:3px 10px;border-radius:99px}
+.live-dot{width:6px;height:6px;border-radius:50%;background:#4ade80;animation:blink 1.8s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.topbar-right{display:flex;align-items:center;gap:14px}
+.update-txt{font-size:11px;color:#6b7280}
+.refresh{background:#1e2130;border:1px solid #374151;border-radius:6px;padding:4px 12px;font-size:11px;color:#9ca3af;cursor:pointer}
+.refresh:hover{background:#252840}
+.main{max-width:1000px;margin:0 auto;padding:20px 16px}
+.sec-label{font-size:10px;font-weight:600;letter-spacing:.1em;color:#4b5563;text-transform:uppercase;margin-bottom:12px}
+.station-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:20px}
+.scard{background:#16181f;border:1px solid #2a2d38;border-radius:14px;padding:18px 20px;position:relative;overflow:hidden}
+.scard.ok{border-color:#14532d}
+.scard.warn{border-color:#7f1d1d}
+.scard.offline{border-color:#374151}
+.scard-accent{position:absolute;top:0;left:0;right:0;height:3px;border-radius:14px 14px 0 0}
+.accent-ok{background:#16a34a}
+.accent-warn{background:#dc2626}
+.accent-off{background:#374151}
+.scard-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
+.scard-name{font-size:13px;font-weight:600;color:#e5e7eb}
+.scard-sub{font-size:11px;color:#6b7280;margin-top:2px}
+.sbadge{font-size:10px;font-weight:600;padding:3px 9px;border-radius:99px}
+.sbadge-ok{background:#052e16;color:#4ade80;border:1px solid #14532d}
+.sbadge-warn{background:#450a0a;color:#f87171;border:1px solid #7f1d1d}
+.sbadge-off{background:#1c1c1c;color:#6b7280;border:1px solid #374151}
+.gauge-wrap{display:flex;align-items:center;gap:16px;margin-bottom:14px}
+.gauge-svg{width:80px;height:80px;flex-shrink:0}
+.voltage-big{font-size:34px;font-weight:700;line-height:1;letter-spacing:-1px}
+.voltage-big.ok{color:#4ade80}
+.voltage-big.warn{color:#f87171}
+.voltage-big.off{color:#6b7280}
+.vunit{font-size:14px;color:#6b7280;margin-left:2px}
+.vmeta{font-size:11px;color:#6b7280;margin-top:4px}
+.vmeta b{color:#9ca3af}
+.stats-row{display:flex;gap:8px}
+.stat-mini{flex:1;background:#0f1117;border:1px solid #2a2d38;border-radius:8px;padding:8px 10px}
+.stat-mini-label{font-size:10px;color:#6b7280;margin-bottom:3px}
+.stat-mini-val{font-size:13px;font-weight:600;color:#e5e7eb}
+.chart-card{background:#16181f;border:1px solid #2a2d38;border-radius:14px;padding:18px 20px;margin-bottom:20px}
+.chart-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+.legend{display:flex;gap:14px;flex-wrap:wrap}
+.leg-item{display:flex;align-items:center;gap:6px;font-size:11px;color:#9ca3af}
+.leg-dot{width:18px;height:3px;border-radius:2px}
+.chart-wrap{position:relative;height:200px}
+.alerts-card{background:#16181f;border:1px solid #2a2d38;border-radius:14px;padding:18px 20px;margin-bottom:20px}
+#alertSelect option{background:#1a1d27;color:#e5e7eb;padding:8px}
+.aicon{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;font-weight:700}
+.aicon-red{background:#450a0a;color:#f87171}
+.aicon-amber{background:#451a03;color:#fb923c}
+.aicon-green{background:#052e16;color:#4ade80}
+.atext{flex:1;min-width:0}
+.atext-main{font-size:13px;font-weight:500;color:#e5e7eb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.atext-sub{font-size:11px;color:#6b7280;margin-top:2px}
+.atime{font-size:11px;color:#4b5563;white-space:nowrap;margin-right:8px}
+.diag-btn{font-size:10px;color:#818cf8;padding:3px 8px;border:1px solid #3730a3;border-radius:99px;background:#1e1b4b;white-space:nowrap;flex-shrink:0}
+.ai-section{background:#16181f;border:1px solid #2a2d38;border-radius:14px;padding:18px 20px;margin-bottom:20px}
+.ai-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.ai-icon{width:32px;height:32px;background:#1e1b4b;border:1px solid #3730a3;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.ai-title-text{font-size:14px;font-weight:600;color:#e5e7eb}
+.ai-title-sub{font-size:11px;color:#6b7280;margin-top:2px}
+.ai-chips{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.ai-chip{font-size:11px;padding:5px 12px;border-radius:99px;border:1px solid #374151;color:#9ca3af;cursor:pointer;background:#0f1117;transition:all .15s;white-space:nowrap}
+.ai-chip:hover{border-color:#4f46e5;color:#a5b4fc}
+.ai-chip.active{background:#1e1b4b;border-color:#4f46e5;color:#a5b4fc}
+.ai-empty{text-align:center;padding:28px;color:#4b5563;font-size:13px}
+.ai-result{background:#0f1117;border:1px solid #1e2130;border-radius:10px;padding:14px 16px}
+.ai-result-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+.ai-device-name{font-size:13px;font-weight:600;color:#e5e7eb}
+.ai-device-time{font-size:11px;color:#6b7280;margin-top:2px}
+.risk-badge{font-size:10px;font-weight:600;padding:4px 10px;border-radius:99px}
+.risk-low{background:#052e16;color:#4ade80;border:1px solid #14532d}
+.risk-mid{background:#451a03;color:#fb923c;border:1px solid #92400e}
+.risk-high{background:#450a0a;color:#f87171;border:1px solid #7f1d1d}
+.ai-section{background:#16181f;border:1px solid #2a2d38;border-radius:14px;overflow:hidden;margin-bottom:20px}
+.ai-section-top{padding:16px 20px;border-bottom:1px solid #2a2d38;display:flex;align-items:center;gap:12px}
+.ai-section-icon{width:36px;height:36px;background:#0c0a1e;border:1px solid #3730a3;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.ai-section-title{font-size:14px;font-weight:600;color:#e5e7eb}
+.ai-section-hint{font-size:11px;color:#6b7280;margin-top:2px}
+.ai-chips{display:flex;gap:8px;padding:12px 20px;border-bottom:1px solid #1e2130;flex-wrap:wrap;background:#0f1117}
+.ai-empty{text-align:center;padding:28px 0;color:#4b5563;font-size:13px}
+.ai-empty-icon{font-size:28px;margin-bottom:8px;opacity:.4}
+.result-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;gap:8px}
+.result-title{font-size:14px;font-weight:600;color:#e5e7eb}
+.result-time{font-size:11px;color:#6b7280;margin-top:3px}
+.risk-pill{font-size:11px;font-weight:600;padding:4px 12px;border-radius:99px;white-space:nowrap;flex-shrink:0}
+.meta-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.meta-block{background:#0f1117;border:1px solid #2a2d38;border-radius:9px;padding:10px 12px}
+.meta-block-label{font-size:10px;color:#6b7280;margin-bottom:5px;letter-spacing:.04em}
+.meta-block-val{font-size:12px;color:#d1d5db;line-height:1.55}
+.diag-box{background:#0c0a1e;border:1px solid #312e81;border-radius:9px;padding:14px 16px}
+.diag-box-label{font-size:10px;font-weight:600;color:#818cf8;letter-spacing:.06em;margin-bottom:9px;display:flex;align-items:center;gap:6px}
+.diag-box-label::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:#4f46e5}
+.diag-text{font-size:13px;color:#c7d2fe;line-height:1.8}
+.action-row{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+.action-btn{font-size:11px;padding:5px 13px;border-radius:6px;border:1px solid #374151;color:#9ca3af;cursor:pointer;background:#16181f}
+.action-btn:hover{border-color:#4f46e5;color:#a5b4fc}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid #3730a3;border-top-color:#818cf8;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-box{text-align:center;padding:3rem 0;color:#6b7280;font-size:14px}
+.error-box{background:#450a0a;color:#fca5a5;border-radius:8px;padding:12px 16px;font-size:13px;margin-bottom:16px;border:1px solid #7f1d1d}
+.footer{text-align:center;font-size:11px;color:#374151;margin-top:8px;padding-bottom:12px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    </div>
+    無線電中繼台電源監控
+  </div>
+  <div class="topbar-right">
+    <div class="live-badge"><div class="live-dot"></div>即時監控中</div>
+    <span class="update-txt" id="lastUpdate">載入中...</span>
+    <button class="refresh" onclick="loadData()">&#8635; 刷新</button>
+  </div>
+</div>
+
+<div class="main">
+  <div id="errorBox" class="error-box" style="display:none"></div>
+  <div id="loadingBox" class="loading-box"><span class="spinner"></span>資料載入中，請稍候...</div>
+
+  <div id="mainContent" style="display:none">
+    <div class="sec-label">站台即時狀態</div>
+    <div class="station-grid" id="stationGrid"></div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="sec-label" style="margin:0">24 小時電壓趨勢</span>
+        <div class="legend" id="chartLegend"></div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="voltageChart" role="img" aria-label="24小時各站台電壓趨勢折線圖">電壓趨勢圖</canvas>
+      </div>
+    </div>
+
+    <div class="alerts-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <span class="sec-label" style="margin:0">最近告警記錄</span>
+        <span style="font-size:11px;color:#4b5563">選擇後自動載入 AI 診斷 ↓</span>
+      </div>
+      <select id="alertSelect" onchange="selectAlert(this.value)" style="width:100%;background:#0f1117;border:1px solid #374151;border-radius:8px;color:#e5e7eb;font-size:13px;padding:10px 14px;outline:none;cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%236b7280%22 stroke-width=%222%22><polyline points=%226 9 12 15 18 9%22/></svg>');background-repeat:no-repeat;background-position:right 14px center">
+        <option value="" disabled selected style="color:#6b7280">— 請選擇告警事件 —</option>
+      </select>
+    </div>
+
+    <div class="ai-section">
+      <div class="ai-section-top">
+        <div class="ai-section-icon">&#129302;</div>
+        <div>
+          <div class="ai-section-title">AI 智慧診斷分析</div>
+          <div class="ai-section-hint">選擇告警事件，AI 將自動研判原因與風險等級</div>
+        </div>
+      </div>
+      <div class="ai-chips" id="aiChips"></div>
+      <div id="aiPanel" style="padding:16px 20px">
+        <div class="ai-empty"><div class="ai-empty-icon">&#129302;</div>請點擊上方告警記錄，查看 AI 診斷分析。</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">每 5 分鐘自動更新 · AI 智慧診斷 · 無線電中繼台電源監控系統</div>
+
+<script>
+var chartInstance = null;
+var COLORS = ["#3b82f6","#ef4444","#f59e0b","#a78bfa","#34d399"];
+var alertsCache = [];
+var activeChip = -1;
+
+function loadData() {
+  google.script.run
+    .withSuccessHandler(renderAll)
+    .withFailureHandler(function(e){ showError(e.message); })
+    .getData();
+}
+
+function renderAll(json) {
+  try {
+    var d = JSON.parse(json);
+    if (!d.ok) { showError(d.error); return; }
+    document.getElementById("loadingBox").style.display = "none";
+    document.getElementById("mainContent").style.display = "block";
+    document.getElementById("lastUpdate").textContent = "更新：" + d.updated;
+    alertsCache = d.alerts || [];
+    renderStations(d.stations, d.voltageMin, d.voltageMax);
+    renderChart(d.stations, d.voltageMin, d.voltageMax);
+    renderAlerts(d.alerts);
+    renderAiChips(d.alerts);
+  } catch(e) { showError(e.message); }
+}
+
+function renderStations(stations, vMin, vMax) {
+  var html = "";
+  stations.forEach(function(s) {
+    var abn = s.status === "abnormal";
+    var off = s.status === "offline";
+    var cls = off ? "offline" : abn ? "warn" : "ok";
+    var badge = off ? '<span class="sbadge sbadge-off">離線</span>'
+               : abn ? '<span class="sbadge sbadge-warn">電壓' + (s.voltage < vMin ? "過低" : "過高") + '</span>'
+               : '<span class="sbadge sbadge-ok">正常</span>';
+    var accent = off ? "accent-off" : abn ? "accent-warn" : "accent-ok";
+    var vColor = off ? "off" : abn ? "warn" : "ok";
+
+    var range = vMax - vMin;
+    var ratio = Math.min(Math.max((s.voltage - vMin) / range, 0), 1);
+    var arcLen = Math.round(ratio * 201);
+    var gaugeColor = off ? "#374151" : abn ? "#dc2626" : "#16a34a";
+    var gaugeLabel = off ? "離線" : abn ? "異常" : "正常";
+    var trendColor = s.trend === "下降" ? "#f87171" : s.trend === "上升" ? "#34d399" : "#9ca3af";
+    var trendArrow = s.trend === "下降" ? "↓" : s.trend === "上升" ? "↑" : "→";
+
+    html += '<div class="scard ' + cls + '">'
+      + '<div class="scard-accent ' + accent + '"></div>'
+      + '<div class="scard-top"><div>'
+      +   '<div class="scard-name">' + s.name + '</div>'
+      +   '<div class="scard-sub">' + formatTime(s.lastTime) + '</div>'
+      + '</div>' + badge + '</div>'
+      + '<div class="gauge-wrap">'
+      +   '<svg class="gauge-svg" viewBox="0 0 80 80">'
+      +     '<circle cx="40" cy="40" r="32" fill="none" stroke="#1e2130" stroke-width="6"/>'
+      +     '<circle cx="40" cy="40" r="32" fill="none" stroke="' + gaugeColor + '" stroke-width="6"'
+      +       ' stroke-dasharray="' + arcLen + ' ' + (201-arcLen) + '" stroke-dashoffset="42" stroke-linecap="round"/>'
+      +     '<text x="40" y="44" text-anchor="middle" font-size="10" fill="#4b5563">' + gaugeLabel + '</text>'
+      +   '</svg>'
+      +   '<div>'
+      +     '<div><span class="voltage-big ' + vColor + '">' + parseFloat(s.voltage).toFixed(1) + '</span><span class="vunit">V</span></div>'
+      +     '<div class="vmeta">正常範圍 <b>' + vMin + '–' + vMax + 'V</b></div>'
+      +     '<div class="vmeta" style="margin-top:4px">趨勢 <b style="color:' + trendColor + '">' + s.trend + ' ' + trendArrow + '</b></div>'
+      +   '</div>'
+      + '</div>'
+      + '<div class="stats-row">'
+      +   '<div class="stat-mini"><div class="stat-mini-label">今日最高</div><div class="stat-mini-val">' + s.dayMax + 'V</div></div>'
+      +   '<div class="stat-mini"><div class="stat-mini-label">今日最低</div><div class="stat-mini-val">' + s.dayMin + 'V</div></div>'
+      +   '<div class="stat-mini"><div class="stat-mini-label">連續異常</div><div class="stat-mini-val" style="color:' + (s.consecutive > 0 ? "#f87171" : "#4ade80") + '">' + s.consecutive + ' 次</div></div>'
+      + '</div></div>';
+  });
+  document.getElementById("stationGrid").innerHTML = html;
+}
+
+function renderChart(stations, vMin, vMax) {
+  var ctx = document.getElementById("voltageChart").getContext("2d");
+  if (chartInstance) chartInstance.destroy();
+
+  var legendHtml = "";
+  var datasets = stations.map(function(s, i) {
+    var color = COLORS[i % COLORS.length];
+    legendHtml += '<div class="leg-item"><div class="leg-dot" style="background:' + color + '"></div>' + s.name + '</div>';
+    return {
+      label: s.name,
+      data: (s.chart || []).map(function(p) { return { x: p.t, y: parseFloat(parseFloat(p.v).toFixed(2)) }; }),
+      borderColor: color,
+      backgroundColor: "transparent",
+      borderWidth: 2,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      tension: 0.3,
+      fill: false
+    };
+  });
+
+  legendHtml += '<div class="leg-item"><div class="leg-dot" style="background:#7f1d1d;border-top:1px dashed #ef4444;height:1px"></div>警戒線</div>';
+  document.getElementById("chartLegend").innerHTML = legendHtml;
+
+  chartInstance = new Chart(ctx, {
+    type: "line",
+    data: { datasets: datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: false },
+        annotation: {},
+        tooltip: {
+          backgroundColor: "#16181f",
+          borderColor: "#374151",
+          borderWidth: 1,
+          titleColor: "#9ca3af",
+          bodyColor: "#e5e7eb",
+          callbacks: {
+            label: function(c) { return " " + c.dataset.label + "：" + parseFloat(c.parsed.y).toFixed(2) + " V"; }
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: "category",
+          ticks: {
+            maxTicksLimit: 8, font: { size: 10 }, color: "#4b5563", maxRotation: 0,
+            callback: function(val) {
+              var l = this.getLabelForValue(val) || "";
+              var p = l.split(" ");
+              return p.length > 1 ? p[1].substring(0,5) : l.substring(0,5);
+            }
+          },
+          grid: { color: "#1e2130" }
+        },
+        y: {
+          min: 10, max: 15.5,
+          ticks: { font: { size: 10 }, color: "#4b5563", callback: function(v) { return v.toFixed(1) + "V"; } },
+          grid: { color: "#1e2130" }
+        }
+      }
+    }
+  });
+}
+
+function renderAlerts(alerts) {
+  var sel = document.getElementById("alertSelect");
+  sel.innerHTML = '<option value="" disabled selected style="color:#6b7280">— 請選擇告警事件 —</option>';
+  if (!alerts || alerts.length === 0) {
+    sel.innerHTML += '<option disabled>目前無告警記錄</option>';
+    return;
+  }
+  alerts.forEach(function(a, i) {
+    var prefix = (a.type||"").indexOf("過低") >= 0 ? "▼ " : (a.type||"").indexOf("過高") >= 0 ? "▲ " : "✓ ";
+    var label = prefix + (a.device||"") + "  " + (a.type||"") + " " + (a.value||"") + "  ·  " + formatTime(a.time);
+    var opt = document.createElement("option");
+    opt.value = i;
+    opt.textContent = label;
+    sel.appendChild(opt);
+  });
+}
+
+function renderAiChips(alerts) {
+  if (!alerts || alerts.length === 0) {
+    document.getElementById("aiChips").innerHTML = "";
+    return;
+  }
+  var html = alerts.map(function(a, i) {
+    var label = (a.device||"").replace("無線電中繼台-","") + " · " + (a.type||"") + " · " + formatTime(a.time);
+    return '<div class="ai-chip" id="chip' + i + '" onclick="selectAlert(' + i + ')">' + label + '</div>';
+  }).join("");
+  document.getElementById("aiChips").innerHTML = html;
+}
+
+function selectAlert(i) {
+  i = parseInt(i);
+  if (isNaN(i)) return;
+  activeChip = i;
+  var sel = document.getElementById("alertSelect");
+  if (sel && sel.value != i) sel.value = i;
+  document.querySelectorAll(".ai-chip").forEach(function(c, j) {
+    c.className = "ai-chip" + (j === i ? " active" : "");
+  });
+  var a = alertsCache[i];
+  if (!a) return;
+  document.getElementById("aiPanel").innerHTML =
+    '<div style="padding:0">'
+    + '<div class="result-header">'
+    +   '<div><div class="result-title">' + (a.device||"") + ' — ' + (a.type||"") + '</div>'
+    +   '<div class="result-time">' + (a.time||"") + '</div></div>'
+    +   '<span class="risk-pill risk-mid" id="riskBadge">分析中...</span>'
+    + '</div>'
+    + '<div class="meta-row">'
+    +   '<div class="meta-block"><div class="meta-block-label">發生時間</div><div class="meta-block-val" id="mTime">—</div></div>'
+    +   '<div class="meta-block"><div class="meta-block-label">電壓數據</div><div class="meta-block-val" id="mVolt">—</div></div>'
+    +   '<div class="meta-block"><div class="meta-block-label">原因研判</div><div class="meta-block-val" id="mCause">—</div></div>'
+    + '</div>'
+    + '<div class="diag-box">'
+    +   '<div class="diag-box-label" id="diagLabel"><span class="spinner"></span>AI 分析中，請稍候...</div>'
+    +   '<div class="diag-text" id="diagText" style="color:#6b7280">正在分析電壓數據...</div>'
+    + '</div>'
+    + '<div class="action-row">'
+    +   '<button class="action-btn" onclick="selectAlert(' + i + ')">&#8635; 重新分析</button>'
+    + '</div>'
+    + '</div>';
+
+  google.script.run
+    .withSuccessHandler(function(json) { renderDiag(json); })
+    .withFailureHandler(function(e) {
+      document.getElementById("diagText").style.color = "#f87171";
+      document.getElementById("diagText").textContent = "AI 分析失敗：" + e.message;
+    })
+    .getAlertDiagnosis(i);
+}
+
+function renderDiag(json) {
+  try {
+    var d = JSON.parse(json);
+    if (!d.ok) {
+      document.getElementById("diagText").style.color = "#f87171";
+      document.getElementById("diagText").textContent = "分析失敗：" + d.error;
+      return;
+    }
+    var rb = document.getElementById("riskBadge");
+    if (d.risk === "高") { rb.className = "risk-pill risk-high"; rb.textContent = "風險：高"; }
+    else if (d.risk === "低") { rb.className = "risk-pill risk-low"; rb.textContent = "風險：低"; }
+    else { rb.className = "risk-pill risk-mid"; rb.textContent = "風險：中"; }
+
+    document.getElementById("mTime").innerHTML  = (d.time||"—").replace(/\n/g,"<br>");
+    document.getElementById("mVolt").innerHTML  = (d.volt||"—").replace(/\n/g,"<br>");
+    document.getElementById("mCause").innerHTML = (d.cause||"—").replace(/\n/g,"<br>");
+
+    var dt = document.getElementById("diagText");
+    dt.style.color = "#c7d2fe";
+    dt.textContent = d.diagnosis || "（無分析結果）";
+
+    var lbl = document.getElementById("diagLabel");
+    if (lbl) lbl.innerHTML = "AI 完整分析";
+  } catch(e) {
+    document.getElementById("diagText").style.color = "#f87171";
+    document.getElementById("diagText").textContent = "解析失敗：" + e.message;
+  }
+}
+
+function formatTime(t) {
+  if (!t) return "";
+  var s = t.toString();
+  var p = s.split(" ");
+  if (p.length >= 2) {
+    var today = new Date();
+    var td = today.toISOString().substring(0,10);
+    var yesterday = new Date(today - 86400000).toISOString().substring(0,10);
+    if (s.indexOf(td) >= 0) return "今日 " + p[1].substring(0,5);
+    if (s.indexOf(yesterday) >= 0) return "昨日 " + p[1].substring(0,5);
+    return p[0].substring(5) + " " + p[1].substring(0,5);
+  }
+  return s.substring(0,16);
+}
+function shortTime(t) {
+  var s = (t||"").toString();
+  var p = s.split(" ");
+  return p.length >= 2 ? p[1].substring(0,5) : s.substring(0,5);
+}
+function showError(msg) {
+  document.getElementById("loadingBox").style.display = "none";
+  document.getElementById("errorBox").style.display = "block";
+  document.getElementById("errorBox").textContent = "錯誤：" + msg;
+}
+
+loadData();
+setInterval(loadData, 5 * 60 * 1000);
+</script>
+</body>
+</html>
