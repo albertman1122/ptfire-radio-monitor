@@ -123,37 +123,28 @@ STATION_ORDER   = [
 ]
 
 # ── 登入 ─────────────────────────────────────────────────────────────────────
-try:
-    creds_cfg = st.secrets.get("credentials", {})
-    usernames = creds_cfg.get("usernames", {})
-    credentials = {
-        "usernames": {
-            u: {"name": i["name"], "password": i["password"]}
-            for u, i in usernames.items()
-        }
-    } if usernames else {
-        "usernames": {
-            "admin": {
-                "name": "Admin",
-                "password": "$2b$12$Ubd5IT1hnQHyDsKgdnEnZePuy7dgu/zFzZA.4i70LdP7HHRGDtfVq"
-            }
-        }
+import bcrypt as _bcrypt
+
+def _make_hash(pw: str) -> str:
+    return _bcrypt.hashpw(pw.encode(), _bcrypt.gensalt(12)).decode()
+
+_DEFAULT_CREDS = {
+    "usernames": {
+        "admin": {
+            "name": "Admin",
+            "password": _make_hash("admin"),
+        },
+        "ptfire": {
+            "name": "屏東消防",
+            "password": _make_hash("119"),
+        },
     }
-    cookie_name = st.secrets.get("cookie", {}).get("name", "power_monitor_auth")
-    cookie_key  = st.secrets.get("cookie", {}).get("key", "ptfire2026monitor")
-    cookie_exp  = st.secrets.get("cookie", {}).get("expiry_days", 7)
-except Exception:
-    credentials = {
-        "usernames": {
-            "admin": {
-                "name": "Admin",
-                "password": "$2b$12$Ubd5IT1hnQHyDsKgdnEnZePuy7dgu/zFzZA.4i70LdP7HHRGDtfVq"
-            }
-        }
-    }
-    cookie_name = "power_monitor_auth"
-    cookie_key  = "ptfire2026monitor"
-    cookie_exp  = 7
+}
+
+cookie_name = "power_monitor_auth"
+cookie_key  = "ptfire2026monitor"
+cookie_exp  = 7
+credentials = _DEFAULT_CREDS
 
 auth = stauth.Authenticate(
     credentials,
