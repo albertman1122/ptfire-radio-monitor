@@ -123,17 +123,43 @@ STATION_ORDER   = [
 ]
 
 # ── 登入 ─────────────────────────────────────────────────────────────────────
-credentials = {
-    "usernames": {
-        u: {"name": i["name"], "password": i["password"]}
-        for u, i in st.secrets["credentials"]["usernames"].items()
+try:
+    creds_cfg = st.secrets.get("credentials", {})
+    usernames = creds_cfg.get("usernames", {})
+    credentials = {
+        "usernames": {
+            u: {"name": i["name"], "password": i["password"]}
+            for u, i in usernames.items()
+        }
+    } if usernames else {
+        "usernames": {
+            "admin": {
+                "name": "Admin",
+                "password": "$2b$12$Ubd5IT1hnQHyDsKgdnEnZePuy7dgu/zFzZA.4i70LdP7HHRGDtfVq"
+            }
+        }
     }
-}
+    cookie_name = st.secrets.get("cookie", {}).get("name", "power_monitor_auth")
+    cookie_key  = st.secrets.get("cookie", {}).get("key", "ptfire2026monitor")
+    cookie_exp  = st.secrets.get("cookie", {}).get("expiry_days", 7)
+except Exception:
+    credentials = {
+        "usernames": {
+            "admin": {
+                "name": "Admin",
+                "password": "$2b$12$Ubd5IT1hnQHyDsKgdnEnZePuy7dgu/zFzZA.4i70LdP7HHRGDtfVq"
+            }
+        }
+    }
+    cookie_name = "power_monitor_auth"
+    cookie_key  = "ptfire2026monitor"
+    cookie_exp  = 7
+
 auth = stauth.Authenticate(
     credentials,
-    st.secrets["cookie"]["name"],
-    st.secrets["cookie"]["key"],
-    cookie_expiry_days=st.secrets["cookie"]["expiry_days"],
+    cookie_name,
+    cookie_key,
+    cookie_expiry_days=cookie_exp,
 )
 auth.login(location="main")
 status = st.session_state.get("authentication_status")
