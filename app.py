@@ -307,7 +307,7 @@ else:
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#111827",
             font=dict(color="#6b7280", size=11),
             xaxis=dict(gridcolor="#1f2937", showgrid=True, zeroline=False),
-            yaxis=dict(gridcolor="#1f2937", showgrid=True, zeroline=False, title="電壓 (V)"),
+            yaxis=dict(gridcolor="#1f2937", showgrid=True, zeroline=False, title="電壓 (V)", range=[10, 15]),
         )
         st.plotly_chart(fig, use_container_width=True)
 
