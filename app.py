@@ -207,8 +207,9 @@ except Exception as e:
 if df.empty:
     st.warning("尚無資料"); st.stop()
 
-now     = datetime.now()
+now     = datetime.utcnow()
 latest  = {d: df[df["device"]==d].iloc[-1] for d in df["device"].unique()}
+data_latest = df["time"].max()  # 整個資料集最新一筆的時間
 stations = STATION_ORDER + [d for d in df["device"].unique() if d not in STATION_ORDER]
 
 if "sel" not in st.session_state:
@@ -243,8 +244,8 @@ def card_html(dev, row, sel):
     v_str = f"{v:.1f} V" if v is not None else "— V"
     age   = ""
     if row is not None:
-        m = int((now-row["time"]).total_seconds()/60)
-        age = f"{m} 分鐘前"
+        m = int((data_latest - row["time"]).total_seconds() / 60)
+        age = "最新" if m < 2 else f"{m} 分鐘前"
     is_off = (color == "red")
     cls    = "st-card" + (" offline" if is_off else "") + (" selected" if sel else "")
     return (f'<div class="{cls}">'
