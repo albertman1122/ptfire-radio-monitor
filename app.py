@@ -428,7 +428,7 @@ else:
   <div>
     <span style="color:#e5e7eb;font-size:1.0rem;font-weight:600;">智慧診斷分析</span>
     <span style="margin-left:10px;background:#1e3a5f;color:#93c5fd;
-      font-size:0.72rem;padding:2px 10px;border-radius:4px;font-weight:600;">Gemini AI</span>
+      font-size:0.72rem;padding:2px 10px;border-radius:4px;font-weight:600;">智慧診斷</span>
     <div style="color:#6b7280;font-size:0.78rem;margin-top:3px;">
       點擊「▶ 開始分析」，AI 將自動診斷電壓趨勢與風險等級
     </div>
@@ -450,21 +450,36 @@ else:
                     nh = datetime.now().hour
                     ctx = "夜間放電" if nh>=18 or nh<6 else "白天應充電"
                     vl  = hist[-1]["v"] if hist else "N/A"
-                    prompt = (f"分析無線電中繼台電源（太陽能，無市電）。現{ctx}。"
-                              f"站:{sname(sel)}，電壓:{vl}V，正常:{VOLTAGE_MIN}~{VOLTAGE_MAX}V，趨勢:{trend}。"
-                              f"近20筆:{json.dumps(hist,ensure_ascii=False)}。"
-                              f"繁中3-5句：①原因 ②風險(低/中/高) ③建議。直接回答。")
-                    import requests as _req
-                    api_key = st.secrets.get("openrouter_api_key", "")
-                    url = "https://openrouter.ai/api/v1/chat/completions"
-                    headers = {"Authorization": f"Bearer {api_key}",
-                               "Content-Type": "application/json"}
-                    body = {"model": "google/gemini-2.0-flash-lite:free",
-                            "messages": [{"role": "user", "content": prompt}]}
-                    r = _req.post(url, headers=headers, json=body, timeout=30)
-                    r.raise_for_status()
-                    st.session_state["ai_result"] = (
-                        r.json()["choices"][0]["message"]["content"].strip())
+                    # 本地規則診斷（不需外部API）
+                    lines = []
+                    if isinstance(vl, float):
+                        if vl < VOLTAGE_MIN:
+                            diff = VOLTAGE_MIN - vl
+                            lines.append(f"① 電壓 {vl}V 低於正常下限 {VOLTAGE_MIN}V（低 {diff:.1f}V），{ctx}期間電池持續放電。")
+                            if trend == "下降":
+                                lines.append(f"② 風險：高｜電壓持續下降，若未回升可能導致設備斷電。")
+                                lines.append(f"③ 建議：立即確認太陽能板是否正常運作，並評估是否需要緊急前往站台。")
+                            else:
+                                lines.append(f"② 風險：中｜電壓低但趨勢{trend}，暫時穩定。")
+                                lines.append(f"③ 建議：持續監控，若電壓繼續下滑則提升警示等級。")
+                        elif vl > VOLTAGE_MAX:
+                            lines.append(f"① 電壓 {vl}V 超過正常上限 {VOLTAGE_MAX}V，{ctx}期間充電充足或充電控制器異常。")
+                            lines.append(f"② 風險：低｜過充風險，但短暫高壓通常為充電中正常現象。")
+                            lines.append(f"③ 建議：確認充電控制器設定是否正確，避免長期過充損壞電池。")
+                        else:
+                            margin = vl - VOLTAGE_MIN
+                            lines.append(f"① 電壓 {vl}V 在正常範圍內（{VOLTAGE_MIN}~{VOLTAGE_MAX}V），{ctx}，趨勢{trend}。")
+                            if trend == "下降" and margin < 1.0:
+                                lines.append(f"② 風險：中｜電壓接近下限且持續下降，需留意。")
+                                lines.append(f"③ 建議：觀察接下來1小時趨勢，若跌破 {VOLTAGE_MIN}V 則提升警示。")
+                            else:
+                                lines.append(f"② 風險：低｜電壓正常穩定。")
+                                lines.append(f"③ 建議：維持現狀，定期確認數據回報正常。")
+                    else:
+                        lines.append(f"① 無法取得有效電壓數據。")
+                        lines.append(f"② 風險：中｜資料缺失，無法判斷站台狀態。")
+                        lines.append(f"③ 建議：檢查資料回報系統是否正常運作。")
+                    st.session_state["ai_result"] = "\n".join(lines)
                     st.session_state["ai_station"] = sel
                     st.session_state["ai_station"] = sel
                 except Exception as e:
