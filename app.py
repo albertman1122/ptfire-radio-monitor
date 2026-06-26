@@ -248,9 +248,10 @@ def card_html(dev, row, sel):
         age = "最新" if m < 2 else f"{m} 分鐘前"
     is_off = (color == "red")
     cls    = "st-card" + (" offline" if is_off else "") + (" selected" if sel else "")
+    volt_color = "#4ade80" if color == "green" else "#f87171" if color == "red" else "#ef4444"
     return (f'<div class="{cls}">'
             f'<div class="card-name">{sname(dev)}</div>'
-            f'<div class="card-volt" style="color:{"#facc15" if color=="green" else "#f87171" if color=="red" else "#fb923c"};">{v_str}</div>'
+            f'<div class="card-volt" style="color:{volt_color};">{v_str}</div>'
             f'<div class="card-footer">'
             f'<span class="badge {color}">{status}</span>'
             f'<span class="card-time">{age}</span>'
