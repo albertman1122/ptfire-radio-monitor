@@ -7,7 +7,6 @@ import plotly.graph_objects as go
 from google.oauth2.service_account import Credentials
 from datetime import datetime, timedelta
 import json
-from google import genai
 
 st.set_page_config(page_title="無線電中繼台AI通訊監控平台", page_icon="📡", layout="wide")
 
@@ -455,12 +454,22 @@ else:
                               f"站:{sname(sel)}，電壓:{vl}V，正常:{VOLTAGE_MIN}~{VOLTAGE_MAX}V，趨勢:{trend}。"
                               f"近20筆:{json.dumps(hist,ensure_ascii=False)}。"
                               f"繁中3-5句：①原因 ②風險(低/中/高) ③建議。直接回答。")
+                    import requests as _req
+                    import google.auth.transport.requests as _gtr
                     sa = json.loads(st.secrets["gcp_service_account"])
                     creds = Credentials.from_service_account_info(
-                        sa, scopes=["https://www.googleapis.com/auth/cloud-platform"])
-                    client = genai.Client(credentials=creds, http_options={"api_version":"v1beta"})
-                    resp   = client.models.generate_content(model="gemini-2.0-flash-lite", contents=prompt)
-                    st.session_state["ai_result"]  = resp.text.strip()
+                        sa, scopes=["https://www.googleapis.com/auth/generative-language"])
+                    creds.refresh(_gtr.Request())
+                    url = ("https://generativelanguage.googleapis.com/v1beta/models/"
+                           "gemini-2.0-flash-lite:generateContent")
+                    headers = {"Authorization": f"Bearer {creds.token}",
+                               "Content-Type": "application/json"}
+                    body = {"contents": [{"parts": [{"text": prompt}]}]}
+                    r = _req.post(url, headers=headers, json=body, timeout=30)
+                    r.raise_for_status()
+                    st.session_state["ai_result"] = (
+                        r.json()["candidates"][0]["content"]["parts"][0]["text"].strip())
+                    st.session_state["ai_station"] = sel
                     st.session_state["ai_station"] = sel
                 except Exception as e:
                     st.session_state["ai_result"]  = f"分析失敗：{e}"
