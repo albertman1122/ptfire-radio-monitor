@@ -440,7 +440,6 @@ else:
         pass
     with ib:
         if st.button("▶ 開始分析", type="primary", key="ai_run"):
-            api_key = st.secrets.get("gemini_api_key","")
             with st.spinner("分析中..."):
                 try:
                     hist = [{"t":str(r["time"])[:16],"v":round(float(r["voltage"]),2)}
@@ -456,7 +455,10 @@ else:
                               f"站:{sname(sel)}，電壓:{vl}V，正常:{VOLTAGE_MIN}~{VOLTAGE_MAX}V，趨勢:{trend}。"
                               f"近20筆:{json.dumps(hist,ensure_ascii=False)}。"
                               f"繁中3-5句：①原因 ②風險(低/中/高) ③建議。直接回答。")
-                    client = genai.Client(api_key=api_key)
+                    sa = json.loads(st.secrets["gcp_service_account"])
+                    creds = Credentials.from_service_account_info(
+                        sa, scopes=["https://www.googleapis.com/auth/cloud-platform"])
+                    client = genai.Client(credentials=creds, http_options={"api_version":"v1beta"})
                     resp   = client.models.generate_content(model="gemini-2.0-flash-lite", contents=prompt)
                     st.session_state["ai_result"]  = resp.text.strip()
                     st.session_state["ai_station"] = sel
