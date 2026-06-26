@@ -457,7 +457,7 @@ else:
                               f"近20筆:{json.dumps(hist,ensure_ascii=False)}。"
                               f"繁中3-5句：①原因 ②風險(低/中/高) ③建議。直接回答。")
                     client = genai.Client(api_key=api_key)
-                    resp   = client.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt)
+                    resp   = client.models.generate_content(model="gemini-1.5-flash", contents=prompt)
                     st.session_state["ai_result"]  = resp.text.strip()
                     st.session_state["ai_station"] = sel
                 except Exception as e:
