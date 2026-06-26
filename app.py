@@ -455,20 +455,16 @@ else:
                               f"近20筆:{json.dumps(hist,ensure_ascii=False)}。"
                               f"繁中3-5句：①原因 ②風險(低/中/高) ③建議。直接回答。")
                     import requests as _req
-                    import google.auth.transport.requests as _gtr
-                    sa = json.loads(st.secrets["gcp_service_account"])
-                    creds = Credentials.from_service_account_info(
-                        sa, scopes=["https://www.googleapis.com/auth/generative-language"])
-                    creds.refresh(_gtr.Request())
-                    url = ("https://generativelanguage.googleapis.com/v1beta/models/"
-                           "gemini-2.0-flash-lite:generateContent")
-                    headers = {"Authorization": f"Bearer {creds.token}",
+                    api_key = st.secrets.get("openrouter_api_key", "")
+                    url = "https://openrouter.ai/api/v1/chat/completions"
+                    headers = {"Authorization": f"Bearer {api_key}",
                                "Content-Type": "application/json"}
-                    body = {"contents": [{"parts": [{"text": prompt}]}]}
+                    body = {"model": "google/gemini-2.0-flash-lite:free",
+                            "messages": [{"role": "user", "content": prompt}]}
                     r = _req.post(url, headers=headers, json=body, timeout=30)
                     r.raise_for_status()
                     st.session_state["ai_result"] = (
-                        r.json()["candidates"][0]["content"]["parts"][0]["text"].strip())
+                        r.json()["choices"][0]["message"]["content"].strip())
                     st.session_state["ai_station"] = sel
                     st.session_state["ai_station"] = sel
                 except Exception as e:
