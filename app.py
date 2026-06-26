@@ -450,35 +450,142 @@ else:
                     nh = datetime.now().hour
                     ctx = "夜間放電" if nh>=18 or nh<6 else "白天應充電"
                     vl  = hist[-1]["v"] if hist else "N/A"
-                    # 本地規則診斷（不需外部API）
+                    # ── 本地智慧診斷引擎（全情境規則）──
                     lines = []
-                    if isinstance(vl, float):
-                        if vl < VOLTAGE_MIN:
-                            diff = VOLTAGE_MIN - vl
-                            lines.append(f"① 電壓 {vl}V 低於正常下限 {VOLTAGE_MIN}V（低 {diff:.1f}V），{ctx}期間電池持續放電。")
-                            if trend == "下降":
-                                lines.append(f"② 風險：高｜電壓持續下降，若未回升可能導致設備斷電。")
-                                lines.append(f"③ 建議：立即確認太陽能板是否正常運作，並評估是否需要緊急前往站台。")
-                            else:
-                                lines.append(f"② 風險：中｜電壓低但趨勢{trend}，暫時穩定。")
-                                lines.append(f"③ 建議：持續監控，若電壓繼續下滑則提升警示等級。")
-                        elif vl > VOLTAGE_MAX:
-                            lines.append(f"① 電壓 {vl}V 超過正常上限 {VOLTAGE_MAX}V，{ctx}期間充電充足或充電控制器異常。")
-                            lines.append(f"② 風險：低｜過充風險，但短暫高壓通常為充電中正常現象。")
-                            lines.append(f"③ 建議：確認充電控制器設定是否正確，避免長期過充損壞電池。")
-                        else:
-                            margin = vl - VOLTAGE_MIN
-                            lines.append(f"① 電壓 {vl}V 在正常範圍內（{VOLTAGE_MIN}~{VOLTAGE_MAX}V），{ctx}，趨勢{trend}。")
-                            if trend == "下降" and margin < 1.0:
-                                lines.append(f"② 風險：中｜電壓接近下限且持續下降，需留意。")
-                                lines.append(f"③ 建議：觀察接下來1小時趨勢，若跌破 {VOLTAGE_MIN}V 則提升警示。")
-                            else:
-                                lines.append(f"② 風險：低｜電壓正常穩定。")
-                                lines.append(f"③ 建議：維持現狀，定期確認數據回報正常。")
+                    is_day = 6 <= nh < 18
+
+                    # 計算變化速率（每筆平均變化量）
+                    rv6 = [h["v"] for h in hist[-6:]] if len(hist) >= 2 else []
+                    if len(rv6) >= 2:
+                        rate = (rv6[-1] - rv6[0]) / max(len(rv6)-1, 1)
                     else:
-                        lines.append(f"① 無法取得有效電壓數據。")
-                        lines.append(f"② 風險：中｜資料缺失，無法判斷站台狀態。")
-                        lines.append(f"③ 建議：檢查資料回報系統是否正常運作。")
+                        rate = 0.0
+                    fast_drop  = rate < -0.15   # 急速下降
+                    slow_drop  = -0.15 <= rate < -0.03
+                    stable_v   = -0.03 <= rate <= 0.03
+                    slow_rise  = 0.03 < rate <= 0.15
+                    fast_rise  = rate > 0.15
+
+                    # 感測器卡死偵測（近10筆標準差極小）
+                    rv10 = [h["v"] for h in hist[-10:]]
+                    import statistics as _st
+                    sensor_stuck = len(rv10) >= 5 and _st.pstdev(rv10) < 0.02
+
+                    # 電壓區間
+                    V_EMERG  = VOLTAGE_MIN - 1.5   # 緊急低壓
+                    V_WARN   = VOLTAGE_MIN          # 警戒低壓
+                    V_OVER   = VOLTAGE_MAX          # 高壓上限
+                    V_DANGER = VOLTAGE_MAX + 0.5    # 過充危險
+
+                    if not isinstance(vl, float):
+                        lines += ["① 無法取得有效電壓數值，感測器可能離線或資料中斷。",
+                                  "② 風險：中｜無法評估站台電源狀態。",
+                                  "③ 建議：確認 RTU 設備與資料傳輸鏈路是否正常，若持續無資料請派員勘查。"]
+
+                    elif sensor_stuck:
+                        lines += [f"① 電壓長期固定於 {vl}V，讀值異常穩定（標準差<0.02V），疑似感測器卡死或通訊凍結。",
+                                  "② 風險：中｜數值不可信，實際電壓未知。",
+                                  "③ 建議：重啟遠端監控模組，若重啟後仍相同讀值則需現場檢查感測器。"]
+
+                    elif vl < V_EMERG:
+                        # 緊急低壓（< 11V）
+                        if is_day:
+                            lines += [f"① 【緊急】白天充電期電壓僅 {vl}V，遠低於警戒值 {V_WARN}V，太陽能系統嚴重異常——面板可能故障、遮蔽或充電控制器損壞。",
+                                      "② 風險：高｜設備可能在數小時內因過低電壓自動斷電，通訊中斷。",
+                                      "③ 建議：立即派員前往站台，優先檢查太陽能板連接、充電控制器輸出電壓，並確認設備負載是否異常偏高。"]
+                        else:
+                            lines += [f"① 【緊急】夜間電壓已降至 {vl}V，電池電量幾近耗盡，設備隨時可能斷電。",
+                                      "② 風險：高｜若日出前無法維持供電，通訊中繼功能將失效。",
+                                      "③ 建議：立即評估是否啟動緊急供電方案（臨時發電機），並於日出後確認太陽能充電是否恢復正常。"]
+
+                    elif vl < V_WARN:
+                        # 低壓警戒區（11V ~ 12.5V）
+                        if is_day and fast_drop:
+                            lines += [f"① 白天充電期電壓 {vl}V 且急速下降（每筆 {rate:.2f}V），太陽能充電量不敷負載消耗，可能為陰雨遮蔽或面板故障。",
+                                      "② 風險：高｜充電無法補足放電，若持續將進入緊急低壓。",
+                                      "③ 建議：確認當日天氣狀況，檢查太陽能板是否遭遮蔽，考慮減少站台非必要負載。"]
+                        elif is_day and (slow_drop or stable_v):
+                            lines += [f"① 白天充電期電壓 {vl}V，低於正常下限但趨勢{('穩定' if stable_v else '緩降')}，太陽能充電量略不足。",
+                                      "② 風險：中｜電壓偏低，若天氣轉差可能加速惡化。",
+                                      "③ 建議：監控下午充電高峰（10~14時）是否有回升，若日落前仍未回到正常範圍則安排隔日檢查。"]
+                        elif is_day and (slow_rise or fast_rise):
+                            lines += [f"① 白天充電期電壓 {vl}V 並持續回升（每筆 {rate:.2f}V），電池正在從低電量狀態充電回復。",
+                                      "② 風險：低｜系統正在自我回復，趨勢正向。",
+                                      "③ 建議：繼續觀察，預計數小時後應可回到正常電壓範圍，無需立即干預。"]
+                        elif not is_day and fast_drop:
+                            lines += [f"① 夜間電壓 {vl}V 且急速下降（每筆 {rate:.2f}V），放電速率異常偏高，可能有設備異常耗電。",
+                                      "② 風險：高｜按此速率恐在日出前達到緊急低壓，設備斷電風險高。",
+                                      "③ 建議：檢查站台是否有設備異常運作，評估是否需緊急介入，並確認日出時間作為充電回復基準。"]
+                        elif not is_day and slow_drop:
+                            lines += [f"① 夜間電壓 {vl}V，低壓警戒區間且緩慢下降，屬偏重放電狀態。",
+                                      "② 風險：中｜若電池容量不足，日出前可能跌入緊急低壓。",
+                                      "③ 建議：監控夜間最低點，確認日出後充電是否能及時回升，必要時縮減夜間設備耗電。"]
+                        else:
+                            lines += [f"① 電壓 {vl}V 位於低壓警戒區，{'白天' if is_day else '夜間'}趨勢穩定。",
+                                      "② 風險：中｜電壓偏低但暫時穩定。",
+                                      "③ 建議：持續監控，觀察是否有進一步惡化趨勢。"]
+
+                    elif vl <= V_OVER:
+                        # 正常電壓區（12.5V ~ 15V）
+                        margin = vl - V_WARN
+                        if is_day and fast_rise:
+                            lines += [f"① 白天充電期電壓 {vl}V 快速上升（每筆 {rate:.2f}V），太陽能充電旺盛，電池正積極補電。",
+                                      "② 風險：低｜充電狀態良好，需留意是否過衝至上限。",
+                                      "③ 建議：確認充電控制器限壓功能正常運作，避免超過 {V_OVER}V 後持續衝高。"]
+                        elif is_day and (slow_rise or stable_v):
+                            lines += [f"① 白天充電期電壓 {vl}V，充電與負載平衡良好，系統運作正常。",
+                                      "② 風險：低｜電壓穩定在正常範圍。",
+                                      "③ 建議：維持現狀，系統無需干預。"]
+                        elif is_day and slow_drop and margin < 1.0:
+                            lines += [f"① 白天充電期電壓 {vl}V 緩慢下降，距低壓警戒僅 {margin:.1f}V，負載略大於充電輸入。",
+                                      "② 風險：中｜若天氣轉差或下午日照不足，可能進入低壓區。",
+                                      "③ 建議：注意下午天氣，確認太陽能板無遮蔽，並觀察日落前電壓是否止跌。"]
+                        elif is_day and fast_drop:
+                            lines += [f"① 白天充電期電壓 {vl}V 卻急速下降（每筆 {rate:.2f}V），充電系統可能突然失效或負載暴增。",
+                                      "② 風險：高｜異常放電速率，需立即排查原因。",
+                                      "③ 建議：立即確認太陽能板輸出、充電控制器狀態，以及是否有設備短路或異常大電流消耗。"]
+                        elif not is_day and stable_v:
+                            lines += [f"① 夜間電壓 {vl}V 穩定，電池電量充足，正常放電維持設備供電。",
+                                      "② 風險：低｜夜間放電正常。",
+                                      "③ 建議：維持現狀，預計明日日出後太陽能充電恢復正常。"]
+                        elif not is_day and slow_drop:
+                            lines += [f"① 夜間電壓 {vl}V 緩慢下降（每筆 {rate:.2f}V），屬正常夜間放電行為。",
+                                      "② 風險：低｜放電速率正常，電量充裕可維持整夜供電。",
+                                      "③ 建議：無需干預，觀察日出後充電回復情形。"]
+                        elif not is_day and fast_drop and margin < 1.5:
+                            lines += [f"① 夜間電壓 {vl}V 且快速下降（每筆 {rate:.2f}V），放電速率偏高，電池可能在日出前跌入低壓警戒。",
+                                      "② 風險：中｜需監控夜間最低點。",
+                                      "③ 建議：確認站台設備是否有異常耗電，並注意日出時間（約6時）充電恢復時機。"]
+                        elif not is_day and (slow_rise or fast_rise):
+                            lines += [f"① 【異常】夜間電壓 {vl}V 卻持續上升，無市電情況下夜間充電來源不明，可能為備用發電機啟動或感測器異常。",
+                                      "② 風險：中｜夜間上升屬非預期現象，需確認原因。",
+                                      "③ 建議：確認是否有臨時供電設備啟動，或感測器讀值是否正確。"]
+                        else:
+                            lines += [f"① 電壓 {vl}V 正常，{'白天充電' if is_day else '夜間放電'}期間趨勢{trend}，系統運作正常。",
+                                      "② 風險：低｜無異常。",
+                                      "③ 建議：維持現狀，定期確認數據回報正常。"]
+
+                    elif vl <= V_DANGER:
+                        # 高壓區（15V ~ 15.5V）
+                        if is_day and fast_rise:
+                            lines += [f"① 白天充電期電壓 {vl}V 且快速上升，電池接近滿充，充電控制器應即將切換至浮充模式。",
+                                      "② 風險：低｜正常充飽過程，但需確認控制器正常限壓。",
+                                      "③ 建議：確認充電控制器是否在 {V_OVER}V 附近正常切入限壓保護，避免持續過充。"]
+                        elif is_day and stable_v:
+                            lines += [f"① 白天充電期電壓 {vl}V 穩定於高壓區，可能為浮充維護狀態，電池已滿電。",
+                                      "② 風險：低｜電池滿電，系統良好。",
+                                      "③ 建議：確認充電控制器浮充電壓設定正確（通常 13.5~13.8V），若長期高於 {V_OVER}V 則檢查控制器設定。"]
+                        else:
+                            lines += [f"① 電壓 {vl}V 偏高，超過正常上限 {V_OVER}V，趨勢{trend}。",
+                                      "② 風險：中｜若長期維持高壓可能損害電池壽命。",
+                                      "③ 建議：確認充電控制器限壓設定，並觀察是否在短時間內自動回落至正常範圍。"]
+
+                    else:
+                        # 過充危險區（> 15.5V）
+                        lines += [f"① 【警告】電壓 {vl}V 嚴重超過安全上限 {V_DANGER}V，充電控制器限壓功能可能失效，電池有過充損壞風險。",
+                                  "② 風險：高｜持續過充將縮短電池壽命，嚴重時可能導致電池膨脹或損壞。",
+                                  "③ 建議：立即檢查充電控制器是否正常運作，必要時暫時斷開太陽能板輸入，並安排設備檢修。"]
+
                     st.session_state["ai_result"] = "\n".join(lines)
                     st.session_state["ai_station"] = sel
                     st.session_state["ai_station"] = sel
