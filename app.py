@@ -107,6 +107,57 @@ hr { border-color:#2d3748 !important; margin:12px 0 !important; }
 /* ── expander ── */
 div[data-testid="stExpander"] { background:#1e2432; border:1px solid #2d3748; border-radius:8px; }
 div[data-testid="stExpander"] summary { color:#9ca3af !important; font-size:0.83rem !important; }
+
+/* ── 登入頁美化 ── */
+.login-hero {
+  max-width:420px; margin:6vh auto 0 auto; padding:0 8px;
+}
+.login-logo-wrap {
+  display:flex; flex-direction:column; align-items:center; margin-bottom:28px;
+}
+.login-logo-icon {
+  width:64px; height:64px; border-radius:16px;
+  background:linear-gradient(135deg,#3b82f6 0%,#1e3a8a 100%);
+  display:flex; align-items:center; justify-content:center;
+  font-size:30px; box-shadow:0 8px 24px rgba(59,130,246,0.35);
+  margin-bottom:16px;
+}
+.login-title {
+  color:#f9fafb; font-size:1.3rem; font-weight:700; text-align:center; line-height:1.4;
+}
+.login-subtitle {
+  color:#6b7280; font-size:0.85rem; text-align:center; margin-top:4px;
+}
+div[data-testid="stForm"] {
+  background:#1a2030; border:1px solid #2d3748; border-radius:16px;
+  padding:32px 28px 24px 28px !important;
+  box-shadow:0 12px 40px rgba(0,0,0,0.35);
+  max-width:420px; margin:0 auto;
+}
+div[data-testid="stForm"] input {
+  background:#111827 !important; border:1px solid #374151 !important;
+  color:#e5e7eb !important; border-radius:8px !important;
+  padding:10px 12px !important; font-size:0.92rem !important;
+}
+div[data-testid="stForm"] input:focus {
+  border-color:#3b82f6 !important; box-shadow:0 0 0 2px rgba(59,130,246,0.25) !important;
+}
+div[data-testid="stForm"] label p {
+  color:#9ca3af !important; font-size:0.82rem !important; font-weight:500 !important;
+}
+div[data-testid="stForm"] button {
+  background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%) !important;
+  border:none !important; color:#fff !important; font-weight:600 !important;
+  border-radius:8px !important; padding:10px 0 !important; width:100% !important;
+  margin-top:8px !important; box-shadow:0 4px 14px rgba(37,99,235,0.35) !important;
+  transition:transform 0.12s, box-shadow 0.12s !important;
+}
+div[data-testid="stForm"] button:hover {
+  transform:translateY(-1px); box-shadow:0 6px 18px rgba(37,99,235,0.5) !important;
+}
+.login-footnote {
+  text-align:center; color:#4b5563; font-size:0.74rem; margin-top:18px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -142,7 +193,7 @@ _DEFAULT_CREDS = {
 
 cookie_name = "power_monitor_auth"
 cookie_key  = "ptfire2026monitor"
-cookie_exp  = 7
+cookie_exp  = 30   # 登入狀態保留 30 天，避免頻繁重新登入
 credentials = _DEFAULT_CREDS
 
 auth = stauth.Authenticate(
@@ -151,12 +202,27 @@ auth = stauth.Authenticate(
     cookie_key,
     cookie_expiry_days=cookie_exp,
 )
+
+status = st.session_state.get("authentication_status")
+if not status:
+    st.markdown("""
+<div class="login-hero">
+  <div class="login-logo-wrap">
+    <div class="login-logo-icon">📡</div>
+    <div class="login-title">屏東縣政府消防局</div>
+    <div class="login-title">無線電中繼台 AI 通訊監控平台</div>
+    <div class="login-subtitle">請登入以檢視即時監控資訊</div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
 auth.login(location="main")
 status = st.session_state.get("authentication_status")
 if status is False:
-    st.error("帳號或密碼錯誤"); st.stop()
+    st.markdown('<div class="login-footnote">帳號或密碼錯誤，請再試一次</div>', unsafe_allow_html=True)
+    st.stop()
 if not status:
-    st.info("請輸入帳號密碼"); st.stop()
+    st.markdown('<div class="login-footnote">登入後將自動記住您的裝置 30 天，無需每次重新登入</div>', unsafe_allow_html=True)
+    st.stop()
 
 # ── 讀取資料 ─────────────────────────────────────────────────────────────────
 @st.cache_data(ttl=60)
