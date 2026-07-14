@@ -108,55 +108,58 @@ hr { border-color:#2d3748 !important; margin:12px 0 !important; }
 div[data-testid="stExpander"] { background:#1e2432; border:1px solid #2d3748; border-radius:8px; }
 div[data-testid="stExpander"] summary { color:#9ca3af !important; font-size:0.83rem !important; }
 
-/* ── 登入頁美化 ── */
+/* ── 登入頁美化（沉穩石墨藍專業色系）── */
 .login-hero {
-  max-width:420px; margin:6vh auto 0 auto; padding:0 8px;
+  max-width:440px; margin:7vh auto 0 auto; padding:0 8px;
 }
 .login-logo-wrap {
-  display:flex; flex-direction:column; align-items:center; margin-bottom:28px;
-}
-.login-logo-icon {
-  width:64px; height:64px; border-radius:16px;
-  background:linear-gradient(135deg,#3b82f6 0%,#1e3a8a 100%);
-  display:flex; align-items:center; justify-content:center;
-  font-size:30px; box-shadow:0 8px 24px rgba(59,130,246,0.35);
-  margin-bottom:16px;
+  display:flex; flex-direction:column; align-items:center; margin-bottom:30px;
 }
 .login-title {
-  color:#f9fafb; font-size:1.3rem; font-weight:700; text-align:center; line-height:1.4;
+  color:#eef2f7; font-size:1.32rem; font-weight:600; text-align:center; line-height:1.55;
+  letter-spacing:0.02em;
 }
 .login-subtitle {
-  color:#6b7280; font-size:0.85rem; text-align:center; margin-top:4px;
+  color:#7c8a9e; font-size:0.86rem; text-align:center; margin-top:10px;
+}
+.login-divider {
+  width:44px; height:3px; background:#3d5a80; border-radius:2px; margin:14px auto 0 auto;
 }
 div[data-testid="stForm"] {
-  background:#1a2030; border:1px solid #2d3748; border-radius:16px;
-  padding:32px 28px 24px 28px !important;
-  box-shadow:0 12px 40px rgba(0,0,0,0.35);
-  max-width:420px; margin:0 auto;
+  background:#1c2431; border:1px solid #2e3a4c; border-radius:14px;
+  padding:40px 36px 30px 36px !important;
+  box-shadow:0 16px 48px rgba(0,0,0,0.4);
+  max-width:440px; margin:0 auto;
 }
 div[data-testid="stForm"] input {
-  background:#111827 !important; border:1px solid #374151 !important;
-  color:#e5e7eb !important; border-radius:8px !important;
-  padding:10px 12px !important; font-size:0.92rem !important;
+  background:#141b26 !important; border:1px solid #364150 !important;
+  color:#eef2f7 !important; border-radius:9px !important;
+  padding:16px 16px !important; font-size:1.02rem !important;
+  height:auto !important; line-height:1.4 !important;
 }
 div[data-testid="stForm"] input:focus {
-  border-color:#3b82f6 !important; box-shadow:0 0 0 2px rgba(59,130,246,0.25) !important;
+  border-color:#5b84b1 !important; box-shadow:0 0 0 3px rgba(91,132,177,0.22) !important;
+}
+div[data-testid="stForm"] div[data-baseweb="input"] {
+  min-height:52px !important;
 }
 div[data-testid="stForm"] label p {
-  color:#9ca3af !important; font-size:0.82rem !important; font-weight:500 !important;
+  color:#9aa8bc !important; font-size:0.86rem !important; font-weight:500 !important;
+  margin-bottom:4px !important;
 }
-div[data-testid="stForm"] button {
-  background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%) !important;
+div[data-testid="stForm"] div[data-testid="stFormSubmitButton"] button {
+  background:#3d5a80 !important;
   border:none !important; color:#fff !important; font-weight:600 !important;
-  border-radius:8px !important; padding:10px 0 !important; width:100% !important;
-  margin-top:8px !important; box-shadow:0 4px 14px rgba(37,99,235,0.35) !important;
-  transition:transform 0.12s, box-shadow 0.12s !important;
+  font-size:1rem !important;
+  border-radius:9px !important; padding:14px 0 !important; width:100% !important;
+  margin-top:14px !important; box-shadow:0 4px 14px rgba(61,90,128,0.4) !important;
+  transition:background 0.15s, transform 0.12s !important;
 }
-div[data-testid="stForm"] button:hover {
-  transform:translateY(-1px); box-shadow:0 6px 18px rgba(37,99,235,0.5) !important;
+div[data-testid="stForm"] div[data-testid="stFormSubmitButton"] button:hover {
+  background:#4a6b96 !important; transform:translateY(-1px);
 }
 .login-footnote {
-  text-align:center; color:#4b5563; font-size:0.74rem; margin-top:18px;
+  text-align:center; color:#5b6779; font-size:0.78rem; margin-top:20px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -172,29 +175,18 @@ STATION_ORDER   = [
     "無線電中繼台-赤牛嶺","無線電中繼台-池山","無線電中繼台-蘭嶼",
 ]
 
-# ── 登入 ─────────────────────────────────────────────────────────────────────
-import bcrypt as _bcrypt
+# ── 登入（帳密／Cookie 設定一律讀取 st.secrets，不寫死於程式碼）───────────────
+if "credentials" not in st.secrets or "cookie" not in st.secrets:
+    st.error("尚未設定登入密鑰，請在 .streamlit/secrets.toml（本機）或 "
+             "Streamlit Cloud 的 Secrets 設定中加入 [credentials] 與 [cookie] 區塊。")
+    st.stop()
 
-def _make_hash(pw: str) -> str:
-    return _bcrypt.hashpw(pw.encode(), _bcrypt.gensalt(12)).decode()
-
-_DEFAULT_CREDS = {
-    "usernames": {
-        "admin": {
-            "name": "Admin",
-            "password": _make_hash("admin"),
-        },
-        "ptfire": {
-            "name": "屏東消防",
-            "password": _make_hash("119"),
-        },
-    }
-}
-
-cookie_name = "power_monitor_auth"
-cookie_key  = "ptfire2026monitor"
-cookie_exp  = 30   # 登入狀態保留 30 天，避免頻繁重新登入
-credentials = _DEFAULT_CREDS
+credentials = {"usernames": {
+    uname: dict(u) for uname, u in st.secrets["credentials"]["usernames"].items()
+}}
+cookie_name = st.secrets["cookie"].get("name", "power_monitor_auth")
+cookie_key  = st.secrets["cookie"]["key"]
+cookie_exp  = st.secrets["cookie"].get("expiry_days", 30)
 
 auth = stauth.Authenticate(
     credentials,
@@ -208,9 +200,9 @@ if not status:
     st.markdown("""
 <div class="login-hero">
   <div class="login-logo-wrap">
-    <div class="login-logo-icon">📡</div>
     <div class="login-title">屏東縣政府消防局</div>
     <div class="login-title">無線電中繼台 AI 通訊監控平台</div>
+    <div class="login-divider"></div>
     <div class="login-subtitle">請登入以檢視即時監控資訊</div>
   </div>
 </div>""", unsafe_allow_html=True)
