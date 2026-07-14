@@ -127,36 +127,62 @@ div[data-testid="stExpander"] summary { color:#9ca3af !important; font-size:0.83
 }
 div[data-testid="stForm"] {
   background:#1c2431; border:1px solid #2e3a4c; border-radius:14px;
-  padding:40px 36px 30px 36px !important;
+  padding:40px 36px 34px 36px !important;
   box-shadow:0 16px 48px rgba(0,0,0,0.4);
   max-width:440px; margin:0 auto;
 }
-div[data-testid="stForm"] input {
-  background:#141b26 !important; border:1px solid #364150 !important;
-  color:#eef2f7 !important; border-radius:9px !important;
-  padding:16px 16px !important; font-size:1.02rem !important;
-  height:auto !important; line-height:1.4 !important;
+/* 隱藏套件內建的「Login」標題，避免與上方自訂標題重複 */
+div[data-testid="stForm"] h1,
+div[data-testid="stForm"] h2,
+div[data-testid="stForm"] h3 {
+  display:none !important;
 }
-div[data-testid="stForm"] input:focus {
+/* 帳號／密碼輸入框：統一高度與樣式（含密碼欄的顯示/隱藏眼睛圖示）*/
+div[data-testid="stForm"] div[data-baseweb="input"],
+div[data-testid="stForm"] div[data-baseweb="base-input"] {
+  background:#141b26 !important; border:1px solid #364150 !important;
+  border-radius:9px !important; height:54px !important;
+  display:flex !important; align-items:center !important;
+  box-sizing:border-box !important;
+}
+div[data-testid="stForm"] div[data-baseweb="input"]:focus-within {
   border-color:#5b84b1 !important; box-shadow:0 0 0 3px rgba(91,132,177,0.22) !important;
 }
-div[data-testid="stForm"] div[data-baseweb="input"] {
-  min-height:52px !important;
+div[data-testid="stForm"] input {
+  background:transparent !important; border:none !important;
+  color:#eef2f7 !important; font-size:1.02rem !important;
+  padding:0 16px !important; height:100% !important; line-height:normal !important;
+}
+div[data-testid="stForm"] input:focus { box-shadow:none !important; }
+div[data-testid="stForm"] button[title*="password"],
+div[data-testid="stForm"] div[data-baseweb="input"] button {
+  background:transparent !important; border:none !important; color:#7c8a9e !important;
 }
 div[data-testid="stForm"] label p {
   color:#9aa8bc !important; font-size:0.86rem !important; font-weight:500 !important;
-  margin-bottom:4px !important;
+  margin-bottom:6px !important;
 }
-div[data-testid="stForm"] div[data-testid="stFormSubmitButton"] button {
+div[data-testid="stForm"] div[data-testid="stFormSubmitButton"],
+div[data-testid="stForm"] div[data-testid="stFormSubmitButton"] > div {
+  width:100% !important;
+}
+div[data-testid="stForm"] div[data-testid="stFormSubmitButton"] button,
+div[data-testid="stForm"] button[kind="primaryFormSubmit"],
+div[data-testid="stForm"] button[kind="secondaryFormSubmit"] {
   background:#3d5a80 !important;
   border:none !important; color:#fff !important; font-weight:600 !important;
-  font-size:1rem !important;
-  border-radius:9px !important; padding:14px 0 !important; width:100% !important;
-  margin-top:14px !important; box-shadow:0 4px 14px rgba(61,90,128,0.4) !important;
+  font-size:1.02rem !important;
+  border-radius:9px !important; height:54px !important; width:100% !important;
+  margin-top:16px !important; box-shadow:0 4px 14px rgba(61,90,128,0.4) !important;
   transition:background 0.15s, transform 0.12s !important;
 }
-div[data-testid="stForm"] div[data-testid="stFormSubmitButton"] button:hover {
+div[data-testid="stForm"] div[data-testid="stFormSubmitButton"] button:hover,
+div[data-testid="stForm"] button[kind="primaryFormSubmit"]:hover,
+div[data-testid="stForm"] button[kind="secondaryFormSubmit"]:hover {
   background:#4a6b96 !important; transform:translateY(-1px);
+}
+div[data-testid="stForm"] div[data-testid="stFormSubmitButton"] button p {
+  font-size:1.02rem !important; font-weight:600 !important;
 }
 .login-footnote {
   text-align:center; color:#5b6779; font-size:0.78rem; margin-top:20px;
