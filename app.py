@@ -432,6 +432,92 @@ def battery_status(h):
         return "需要注意", "yellow"
     return "狀態良好", "green"
 
+# ── 溫度健康分析（射頻設備早期故障偵測）──────────────────────────────────────
+TEMP_COLS_ALL = ["temp_drive", "temp_tx", "temp_tcxo", "temp_hpa"]
+TEMP_LABELS   = {"temp_drive": "Drive Amp", "temp_tx": "TX Block",
+                 "temp_tcxo": "TCXO", "temp_hpa": "Final Amp"}
+
+def temp_health(df):
+    """追蹤各站四路溫度的「通道相對溫差」漂移。
+    原理：環境氣溫會同時影響四路讀值，改看「單一通道 − 四路平均」的相對值，
+    可以把季節／天氣因素抵消掉。某一通道的相對溫差逐月上升，
+    即為該級放大器散熱劣化（散熱膏老化、風扇衰退）的早期徵兆。
+    回傳 (各站摘要 list, 各站每日明細 dict)。"""
+    out, detail = [], {}
+    for dev in df["device"].unique():
+        d = df[df["device"] == dev].copy()
+        cols = [c for c in TEMP_COLS_ALL
+                if c in d.columns and d[c].notna().sum() >= 20]
+        if len(cols) < 2:
+            out.append({"device": dev, "days": 0}); continue
+        d = d.dropna(subset=cols)
+        if len(d) < 20:
+            out.append({"device": dev, "days": 0}); continue
+        rowmean = d[cols].mean(axis=1)
+        rel = pd.DataFrame({c: d[c] - rowmean for c in cols})
+        rel["date"] = d["time"].dt.date.values
+        daily = rel.groupby("date").median().sort_index()
+        detail[dev] = daily
+        days = len(daily)
+        recent_raw = d.groupby(d["time"].dt.date)[cols].median().tail(7).median()
+        overheat_c = recent_raw.idxmax() if (recent_raw >= 75).any() else None
+        if days < 3:
+            out.append({"device": dev, "days": days}); continue
+        entry = {"device": dev, "days": days, "cols": cols,
+                 "overheat": overheat_c,
+                 "overheat_val": float(recent_raw.max()) if overheat_c else None}
+        if days >= 10:
+            recent = daily.tail(7).median()
+            base   = daily.head(max(7, days // 3)).median()
+            drift  = recent - base
+            worst_c = drift.abs().idxmax()
+            entry["worst_col"]  = worst_c
+            entry["worst_drift"] = float(drift[worst_c])
+        out.append(entry)
+    return out, detail
+
+def temp_status(h):
+    """溫度健康標籤：先看絕對過熱，再看相對溫差漂移。"""
+    if h["days"] < 3:
+        return "資料不足", "gray"
+    if h.get("overheat"):
+        return "溫度過高", "red"
+    drift = h.get("worst_drift")
+    if drift is None:
+        return "累積中", "gray"
+    if abs(drift) >= 6:
+        return "漂移警訊", "red"
+    if abs(drift) >= 3:
+        return "需要注意", "yellow"
+    return "狀態良好", "green"
+
+# ── 同儕比較（群體離群偵測）─────────────────────────────────────────────────
+def peer_comparison(latest, now):
+    """13 站同處屏東、天氣相近，理論上電壓應相去不遠。
+    以「全體中位數 ± MAD 穩健標準差」找出偏離群體的站台——
+    即使其電壓仍在絕對正常範圍內，相對群體的離群就是早期劣化訊號。
+    回傳依偏離程度排序的 DataFrame，站數不足（<5 站在線）時回傳 None。"""
+    vals = {}
+    for dev, row in latest.items():
+        if row is None:
+            continue
+        if (now - row["time"]).total_seconds() / 60 > OFFLINE_MINUTES:
+            continue
+        v = row.get("voltage")
+        if pd.isna(v):
+            continue
+        vals[dev] = float(v)
+    if len(vals) < 5:
+        return None
+    s   = pd.Series(vals)
+    med = float(s.median())
+    mad = float((s - med).abs().median()) * 1.4826
+    if mad < 0.05:          # 全體幾乎一致時，避免除以趨近 0 造成假警報
+        mad = 0.05
+    z = (s - med) / mad
+    out = pd.DataFrame({"voltage": s, "dev_v": s - med, "z": z})
+    return out.sort_values("z"), med
+
 def get_status(row, now):
     if row is None: return "離線","red"
     if (now-row["time"]).total_seconds()/60 > OFFLINE_MINUTES: return "離線","red"
@@ -621,6 +707,123 @@ with st.expander("🔋 電池健康排行榜（夜間放電斜率分析）", exp
             )
             st.plotly_chart(figb, use_container_width=True)
             st.caption("綠＝正常放電；黃＝偏快（-0.08 V/h 以下）；紅＝過快（-0.15 V/h 以下）。柱狀圖逐月變紅即為電池衰退，建議排入汰換計畫。")
+
+# ── 溫度健康分析（射頻設備）──────────────────────────────────────────────────
+with st.expander("🌡 溫度健康分析（放大器散熱劣化偵測）", expanded=False):
+    st.markdown(
+        "<p style='color:#6b7280;font-size:0.8rem;margin:0 0 10px;'>"
+        "原理：環境氣溫會同時影響四路溫度，因此改看「單一通道 − 四路平均」的相對溫差，"
+        "自動抵消季節與天氣因素。某一級放大器的相對溫差逐月上升，"
+        "即為散熱膏老化、風扇衰退或元件劣化的早期徵兆，可在燒毀前數週預警。</p>",
+        unsafe_allow_html=True)
+
+    theat, tdetail = temp_health(df)
+    torder = {"red": 0, "yellow": 1, "green": 2, "gray": 3}
+    tranked = sorted(theat, key=lambda h: (torder[temp_status(h)[1]],
+                                           -abs(h.get("worst_drift") or 0)))
+    trows = ('<div style="display:flex;gap:8px;padding:6px 12px;color:#6b7280;font-size:0.74rem;">'
+             '<span style="flex:2;">站台</span><span style="flex:2;">健康狀態</span>'
+             '<span style="flex:2;">最大漂移通道</span><span style="flex:2;">相對溫差漂移</span>'
+             '<span style="flex:1;">樣本天數</span></div>')
+    for h in tranked:
+        label, color = temp_status(h)
+        css = badge_css[color]
+        if h.get("overheat"):
+            ch_s    = TEMP_LABELS.get(h["overheat"], h["overheat"])
+            drift_s = f"目前約 {h['overheat_val']:.0f}°C（過熱）"
+        elif h.get("worst_drift") is not None:
+            ch_s    = TEMP_LABELS.get(h["worst_col"], h["worst_col"])
+            sign    = "+" if h["worst_drift"] >= 0 else ""
+            drift_s = f"{sign}{h['worst_drift']:.1f}°C"
+        elif h["days"] >= 3:
+            ch_s, drift_s = "—", "累積中（需10天）"
+        else:
+            ch_s, drift_s = "—", "—"
+        trows += (
+            f'<div style="display:flex;gap:8px;align-items:center;background:#1e2432;'
+            f'border:1px solid #2d3748;border-radius:8px;padding:9px 12px;margin-bottom:6px;'
+            f'font-size:0.82rem;color:#d1d5db;">'
+            f'<span style="flex:2;font-weight:600;">{html.escape(sname(h["device"]))}</span>'
+            f'<span style="flex:2;"><span style="{css}font-size:0.72rem;font-weight:600;'
+            f'padding:2px 10px;border-radius:4px;">{label}</span></span>'
+            f'<span style="flex:2;">{ch_s}</span>'
+            f'<span style="flex:2;">{drift_s}</span>'
+            f'<span style="flex:1;color:#6b7280;">{h["days"]}</span></div>')
+    st.markdown(trows, unsafe_allow_html=True)
+
+    thave = [h["device"] for h in tranked if h["days"] >= 3]
+    if thave:
+        tsel = st.selectbox("檢視單站相對溫差歷史", thave,
+                            format_func=sname, key="temp_sel")
+        td = tdetail.get(tsel)
+        if td is not None and not td.empty:
+            figt = go.Figure()
+            for c, color in zip(TEMP_COLS_ALL, ["#f87171", "#a78bfa", "#38bdf8", "#4ade80"]):
+                if c in td.columns:
+                    figt.add_trace(go.Scatter(
+                        x=list(td.index), y=td[c], mode="lines+markers",
+                        name=TEMP_LABELS[c], line=dict(color=color, width=2),
+                        marker=dict(size=4)))
+            figt.update_layout(
+                height=240, margin=dict(t=8, b=8, l=0, r=10),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#111827",
+                font=dict(color="#6b7280", size=11),
+                xaxis=dict(gridcolor="#1f2937", zeroline=False),
+                yaxis=dict(gridcolor="#1f2937", zeroline=False,
+                           title="相對溫差（− 四路平均，°C）"),
+                legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(size=11)),
+            )
+            st.plotly_chart(figt, use_container_width=True)
+            st.caption("各線代表該通道相對於四路平均的溫差。水平走勢＝正常；"
+                       "某一條線持續向上爬＝該級放大器散熱劣化，建議安排檢查。")
+
+# ── 同儕比較（群體離群偵測）──────────────────────────────────────────────────
+with st.expander("📊 同儕比較（群體離群偵測）", expanded=False):
+    st.markdown(
+        "<p style='color:#6b7280;font-size:0.8rem;margin:0 0 10px;'>"
+        "原理：13 站同處屏東地區、天氣相近，電壓理論上應相去不遠。"
+        "以全體中位數 ± 穩健標準差（MAD）評分，即使某站電壓仍在絕對正常範圍內，"
+        "「明顯偏離群體」本身就是早期劣化訊號，能抓到固定閾值抓不到的問題。</p>",
+        unsafe_allow_html=True)
+
+    pc = peer_comparison(latest, now)
+    if pc is None:
+        st.info("在線站台不足 5 站，樣本太少無法進行群體比較。")
+    else:
+        pc_df, pc_med = pc
+        flagged = pc_df[pc_df["z"].abs() >= 1.5]
+        if flagged.empty:
+            st.markdown(
+                f"<p style='color:#4ade80;font-size:0.85rem;'>✅ 全體 {len(pc_df)} 個在線站台電壓分布一致"
+                f"（中位數 {pc_med:.1f}V），無離群站台。</p>", unsafe_allow_html=True)
+        else:
+            for dev, r in flagged.iterrows():
+                sev = ("🔴 離群" if abs(r["z"]) >= 2.5 else "🟡 偏離")
+                direction = "低於" if r["dev_v"] < 0 else "高於"
+                st.markdown(
+                    f"<p style='color:#fbbf24;font-size:0.85rem;margin:2px 0;'>{sev}："
+                    f"<b>{html.escape(sname(dev))}</b> {r['voltage']:.1f}V，"
+                    f"{direction}群體中位數 {abs(r['dev_v']):.1f}V（{abs(r['z']):.1f} 個穩健標準差）"
+                    f"</p>", unsafe_allow_html=True)
+
+        figp = go.Figure()
+        figp.add_trace(go.Bar(
+            x=[sname(d) for d in pc_df.index], y=pc_df["dev_v"],
+            marker=dict(color=["#f87171" if abs(z) >= 2.5 else
+                               "#fbbf24" if abs(z) >= 1.5 else "#4ade80"
+                               for z in pc_df["z"]]),
+            showlegend=False))
+        figp.update_layout(
+            height=220, margin=dict(t=8, b=8, l=0, r=10),
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#111827",
+            font=dict(color="#6b7280", size=11),
+            xaxis=dict(gridcolor="#1f2937", zeroline=False),
+            yaxis=dict(gridcolor="#1f2937", zeroline=True, zerolinecolor="#374151",
+                       title=f"與群體中位數 {pc_med:.1f}V 的差距 (V)"),
+        )
+        st.plotly_chart(figp, use_container_width=True)
+        st.caption("綠＝與群體一致；黃＝偏離 1.5 個穩健標準差；紅＝偏離 2.5 個以上（離群）。"
+                   "離線站台不列入比較。")
 
 st.markdown("<hr>", unsafe_allow_html=True)
 
