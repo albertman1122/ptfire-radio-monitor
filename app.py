@@ -171,21 +171,37 @@ div[data-testid="stForm"] h3 {
 }
 /* 帳號／密碼輸入框：統一高度與樣式（含密碼欄的顯示/隱藏眼睛圖示）*/
 div[data-testid="stForm"] div[data-baseweb="input"],
-div[data-testid="stForm"] div[data-baseweb="base-input"] {
+div[data-testid="stForm"] div[data-baseweb="base-input"],
+div[data-testid="stForm"] [data-testid="stTextInputRootElement"],
+div[data-testid="stForm"] div[data-testid="stTextInput"] > div {
   background:#fff9f5 !important; border:1px solid #f3dcc9 !important;
   border-radius:10px !important; height:54px !important;
   display:flex !important; align-items:center !important;
   box-sizing:border-box !important;
 }
-div[data-testid="stForm"] div[data-baseweb="input"]:focus-within {
+div[data-testid="stForm"] div[data-baseweb="input"]:focus-within,
+div[data-testid="stForm"] [data-testid="stTextInputRootElement"]:focus-within {
   border-color:#f97316 !important; box-shadow:0 0 0 3px rgba(249,115,22,0.16) !important;
 }
-div[data-testid="stForm"] input {
-  background:transparent !important; border:none !important;
+div[data-testid="stForm"] input,
+div[data-testid="stForm"] input[type="text"],
+div[data-testid="stForm"] input[type="password"] {
+  background:#fff9f5 !important; border:none !important;
   color:#3a2a20 !important; font-size:1.02rem !important;
   padding:0 16px !important; height:100% !important; line-height:normal !important;
+  -webkit-text-fill-color:#3a2a20 !important;
 }
 div[data-testid="stForm"] input:focus { box-shadow:none !important; }
+div[data-testid="stForm"] input::placeholder { color:#c9a98d !important; opacity:1 !important; }
+/* 瀏覽器自動填入時避免出現黑底 */
+div[data-testid="stForm"] input:-webkit-autofill,
+div[data-testid="stForm"] input:-webkit-autofill:hover,
+div[data-testid="stForm"] input:-webkit-autofill:focus {
+  -webkit-text-fill-color:#3a2a20 !important;
+  -webkit-box-shadow:0 0 0px 1000px #fff9f5 inset !important;
+  box-shadow:0 0 0px 1000px #fff9f5 inset !important;
+  transition:background-color 9999s ease-in-out 0s;
+}
 div[data-testid="stForm"] button[title*="password"],
 div[data-testid="stForm"] div[data-baseweb="input"] button {
   background:transparent !important; border:none !important; color:#b98a6f !important;
