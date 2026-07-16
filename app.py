@@ -228,7 +228,7 @@ div[data-testid="stForm"] div[data-testid="stFormSubmitButton"] button p {
 }
 /* 登入按鈕旁的溫暖歡迎文字 */
 div[data-testid="stForm"] div[data-testid="stFormSubmitButton"]::after {
-  content:"嗨，歡迎回來！\\A 24 小時 AI 智慧監控";
+  content:"歡迎回來\\A 24 小時監控無線電中繼台";
   white-space:pre-line;
   color:#a8785c; font-size:0.8rem; line-height:1.6; font-weight:500;
   flex:1 1 auto;
