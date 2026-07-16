@@ -340,10 +340,16 @@ def load_weather():
     except Exception:
         return None, None  # 沒設定金鑰＝功能未啟用，不算錯誤
     try:
+        # opendata.cwa.gov.tw 的憑證缺少 Subject Key Identifier 欄位，
+        # 在部分雲端環境（如 Streamlit Cloud）的嚴格 SSL 驗證下會直接連線失敗
+        # （瀏覽器因驗證較寬鬆不會發現）。這支 API 僅為公開唯讀氣象資料、
+        # 不涉及任何帳密或敏感資料傳輸，故此處關閉憑證驗證作為因應。
+        import urllib3
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         r = requests.get(
             "https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001",
             params={"Authorization": key, "locationName": "屏東縣,臺東縣"},
-            timeout=10)
+            timeout=10, verify=False)
         r.raise_for_status()
         body = r.json()
         if body.get("success") != "true":
