@@ -121,7 +121,7 @@ div[data-testid="stExpander"] summary { color:#9ca3af !important; font-size:0.83
 .login-logo-wrap {
   display:flex; flex-direction:column; align-items:center; margin-bottom:22px;
 }
-.login-mascot { width:104px; height:104px; margin-bottom:14px; filter:drop-shadow(0 10px 22px rgba(230,80,40,0.28)); }
+.login-mascot { width:128px; height:128px; margin-bottom:14px; filter:drop-shadow(0 10px 22px rgba(230,80,40,0.28)); }
 .login-title {
   color:#3a2a20; font-size:1.34rem; font-weight:600; text-align:center; line-height:1.55;
   letter-spacing:0.02em;
@@ -234,21 +234,42 @@ if not status:
     st.markdown("""
 <div class="login-hero">
   <div class="login-logo-wrap">
-    <svg class="login-mascot" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="60" cy="60" r="58" fill="#fff3e8"/>
-  <circle cx="60" cy="60" r="58" fill="none" stroke="#ffd8b0" stroke-width="2"/>
-  <path d="M60 22c10 12 18 20 18 32a18 18 0 1 1-36 0c0-6 2-10 5-14 1 6 4 8 6 8 -1-8 1-16 7-26z"
-        fill="#fb923c"/>
-  <path d="M60 40c5 7 9 12 9 19a9 9 0 1 1-18 0c0-3 1-5 2.5-7 .5 3 2 4 3 4 -1-5 .5-10 3.5-16z"
-        fill="#fde68a"/>
-  <circle cx="52" cy="70" r="2.6" fill="#7c3f1d"/>
-  <circle cx="68" cy="70" r="2.6" fill="#7c3f1d"/>
-  <path d="M53 78c3 3 11 3 14 0" stroke="#7c3f1d" stroke-width="2.4" fill="none" stroke-linecap="round"/>
-  <circle cx="46" cy="76" r="3.2" fill="#fca5a5" opacity="0.7"/>
-  <circle cx="74" cy="76" r="3.2" fill="#fca5a5" opacity="0.7"/>
-  <path d="M34 100c8-6 44-6 52 0" stroke="#ef4444" stroke-width="6" fill="none" stroke-linecap="round"/>
-  <path d="M38 96a24 10 0 0 1 44 0" fill="#ef4444"/>
-  <rect x="56" y="88" width="8" height="6" rx="1.5" fill="#fde68a"/>
+    <svg class="login-mascot" viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="badgeGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fb7a3c"/>
+      <stop offset="100%" stop-color="#e63946"/>
+    </linearGradient>
+  </defs>
+  <circle cx="70" cy="70" r="68" fill="url(#badgeGrad)"/>
+  <path d="M14 88a56 56 0 0 0 112 0" fill="none" stroke="#ffffff" stroke-width="7" opacity="0.14"/>
+
+  <!-- 身體／制服 -->
+  <path d="M32 140 C34 108 50 96 70 96 C90 96 106 108 108 140 Z" fill="#ea580c"/>
+  <path d="M58 100 L70 116 L82 100 L74 96 L66 96 Z" fill="#fff7ed"/>
+  <rect x="44" y="112" width="16" height="13" rx="3" fill="#c2410c"/>
+  <rect x="80" y="112" width="16" height="13" rx="3" fill="#c2410c"/>
+  <rect x="60" y="120" width="20" height="10" rx="2.5" fill="#fff7ed"/>
+  <rect x="63" y="123.4" width="14" height="3.2" rx="1.4" fill="#ea580c"/>
+
+  <!-- 無線電對講機（呼應通訊主題） -->
+  <rect x="90" y="100" width="13" height="20" rx="3" fill="#1f2937"/>
+  <rect x="94.5" y="96" width="4" height="7" rx="1.5" fill="#1f2937"/>
+  <circle cx="96.5" cy="110" r="1.6" fill="#ef4444"/>
+
+  <!-- 頭盔 -->
+  <path d="M42 58 Q70 26 98 58 L96 66 Q70 54 44 66 Z" fill="#1f2937"/>
+  <rect x="40" y="63" width="60" height="7" rx="3.5" fill="#111827"/>
+  <circle cx="70" cy="46" r="6" fill="#fbbf24"/>
+  <path d="M67 43 L70 49 L73 43 Z" fill="#c2410c"/>
+
+  <!-- 臉 -->
+  <circle cx="70" cy="82" r="24" fill="#ffd9b3"/>
+  <path d="M59 80 q4 -5 8 0" stroke="#7c3f1d" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <path d="M73 80 q4 -5 8 0" stroke="#7c3f1d" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <path d="M60 90 q10 8 20 0" stroke="#7c3f1d" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+  <circle cx="54" cy="88" r="3.6" fill="#fca5a5" opacity="0.65"/>
+  <circle cx="86" cy="88" r="3.6" fill="#fca5a5" opacity="0.65"/>
 </svg>
     <div class="login-title">屏東縣政府消防局</div>
     <div class="login-title">無線電中繼台 AI 通訊監控平台</div>
