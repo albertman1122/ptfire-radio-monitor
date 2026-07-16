@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import os
+import base64
 import streamlit as st
 import streamlit_authenticator as stauth
 import gspread
@@ -7,6 +9,13 @@ import plotly.graph_objects as go
 from google.oauth2.service_account import Credentials
 from datetime import datetime, timedelta
 import json
+
+def _b64_asset(rel_path):
+    full = os.path.join(os.path.dirname(__file__), rel_path)
+    with open(full, "rb") as f:
+        return base64.b64encode(f.read()).decode("utf-8")
+
+MASCOT_B64 = _b64_asset("assets/login-mascot.jpg")
 
 st.set_page_config(page_title="無線電中繼台AI通訊監控平台", page_icon="📡", layout="wide")
 
@@ -121,7 +130,10 @@ div[data-testid="stExpander"] summary { color:#9ca3af !important; font-size:0.83
 .login-logo-wrap {
   display:flex; flex-direction:column; align-items:center; margin-bottom:22px;
 }
-.login-mascot { width:172px; height:172px; margin-bottom:16px; filter:drop-shadow(0 14px 28px rgba(220,38,38,0.25)); }
+.login-mascot {
+  width:172px; height:172px; object-fit:cover; border-radius:34px;
+  margin-bottom:16px; filter:drop-shadow(0 14px 28px rgba(220,38,38,0.25));
+}
 .login-title {
   color:#3a2a20; font-size:1.34rem; font-weight:600; text-align:center; line-height:1.55;
   letter-spacing:0.02em;
@@ -243,69 +255,10 @@ auth = stauth.Authenticate(
 
 status = st.session_state.get("authentication_status")
 if not status:
-    st.markdown("""
+    st.markdown(f"""
 <div class="login-hero">
   <div class="login-logo-wrap">
-    <svg class="login-mascot" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="cardGrad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#fb7a3c"/>
-      <stop offset="100%" stop-color="#dc2626"/>
-    </linearGradient>
-    <linearGradient id="shirtGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#f97316"/>
-      <stop offset="100%" stop-color="#c2410c"/>
-    </linearGradient>
-  </defs>
-
-  <rect x="3" y="3" width="214" height="214" rx="34" fill="url(#cardGrad)"/>
-  <circle cx="110" cy="146" r="74" fill="#ffffff" opacity="0.95"/>
-
-  <!-- 四個主題徽章：呼應儀表板監測項目（通訊訊號／電壓／溫度／太陽能）-->
-  <circle cx="34" cy="40" r="17" fill="#ffffff" opacity="0.22"/>
-  <path d="M24 44a14 14 0 0 1 20 0M27 39a19 19 0 0 1 14 0M30 34a24 24 0 0 1 8 0"
-        stroke="#ffffff" stroke-width="2.4" fill="none" stroke-linecap="round"/>
-
-  <circle cx="186" cy="40" r="17" fill="#ffffff" opacity="0.22"/>
-  <path d="M189 27 L180 42 L187 42 L185 53 L196 36 L189 36 Z" fill="#ffffff"/>
-
-  <circle cx="30" cy="178" r="17" fill="#ffffff" opacity="0.22"/>
-  <rect x="27" y="167" width="6" height="15" rx="3" fill="#ffffff"/>
-  <circle cx="30" cy="184" r="5.2" fill="#ffffff"/>
-
-  <circle cx="190" cy="178" r="17" fill="#ffffff" opacity="0.22"/>
-  <circle cx="190" cy="178" r="6" fill="#ffffff"/>
-  <path d="M190 166v4M190 186v4M178 178h4M198 178h4M182 170l2.8 2.8M195.2 183.2l2.8 2.8M198 170l-2.8 2.8M184.8 183.2l-2.8 2.8"
-        stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
-
-  <!-- 制服／身體 -->
-  <path d="M62 222 C64 180 84 158 110 158 C136 158 156 180 158 222 Z" fill="url(#shirtGrad)"/>
-  <path d="M92 162 L110 182 L128 162 L118 158 L102 158 Z" fill="#fff7ed"/>
-  <rect x="76" y="176" width="20" height="16" rx="3.5" fill="#c2410c"/>
-  <rect x="124" y="176" width="20" height="16" rx="3.5" fill="#c2410c"/>
-  <rect x="96" y="188" width="28" height="12" rx="3" fill="#fff7ed"/>
-  <rect x="100" y="192.5" width="20" height="3.4" rx="1.5" fill="#ea580c"/>
-
-  <!-- 無線電對講機（呼應通訊主題） -->
-  <rect x="150" y="160" width="16" height="24" rx="3.5" fill="#1f2937"/>
-  <rect x="155.5" y="154" width="5" height="8" rx="1.8" fill="#1f2937"/>
-  <circle cx="158" cy="172" r="2" fill="#ef4444"/>
-
-  <!-- 頭盔 -->
-  <path d="M74 96 Q110 54 146 96 L144 106 Q110 92 76 106 Z" fill="#1f2937"/>
-  <rect x="72" y="102" width="76" height="9" rx="4.5" fill="#111827"/>
-  <circle cx="110" cy="80" r="8" fill="#fbbf24"/>
-  <path d="M106 76 L110 84 L114 76 Z" fill="#c2410c"/>
-
-  <!-- 臉：左暗右亮的立體光影 -->
-  <circle cx="110" cy="130" r="32" fill="#ffd9b3"/>
-  <path d="M110 98a32 32 0 0 0 0 64z" fill="#f0b98a"/>
-  <path d="M97 128 q5 -6 10 0" stroke="#7c3f1d" stroke-width="3" fill="none" stroke-linecap="round"/>
-  <path d="M113 128 q5 -6 10 0" stroke="#7c3f1d" stroke-width="3" fill="none" stroke-linecap="round"/>
-  <path d="M98 140 q12 10 24 0" stroke="#7c3f1d" stroke-width="3.2" fill="none" stroke-linecap="round"/>
-  <circle cx="90" cy="136" r="4.6" fill="#fca5a5" opacity="0.6"/>
-  <circle cx="130" cy="136" r="4.6" fill="#fca5a5" opacity="0.6"/>
-</svg>
+    <img class="login-mascot" src="data:image/jpeg;base64,{MASCOT_B64}" alt="屏東縣政府消防局吉祥物"/>
     <div class="login-title">屏東縣政府消防局</div>
     <div class="login-title">無線電中繼台 AI 通訊監控平台</div>
     <div class="login-divider"></div>
