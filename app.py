@@ -333,17 +333,22 @@ def load_data():
 # ── 天氣資料（中央氣象署開放資料，30 分鐘快取）────────────────────────────────
 @st.cache_data(ttl=1800)
 def load_weather():
-    """讀取屏東縣／臺東縣 36 小時天氣預報。未設定金鑰時回傳 None（功能自動隱藏）。"""
+    """讀取屏東縣／臺東縣 36 小時天氣預報。未設定金鑰時回傳 (None, None)（功能自動隱藏）。
+    回傳 (資料或None, 錯誤訊息或None) 方便在畫面上顯示實際失敗原因，不用再用猜的除錯。"""
     try:
         key = st.secrets["cwa"]["api_key"]
     except Exception:
-        return None
+        return None, None  # 沒設定金鑰＝功能未啟用，不算錯誤
     try:
         r = requests.get(
             "https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001",
             params={"Authorization": key, "locationName": "屏東縣,臺東縣"},
             timeout=10)
-        locs = r.json()["records"]["location"]
+        r.raise_for_status()
+        body = r.json()
+        if body.get("success") != "true":
+            return None, f"API 回應失敗：{body}"
+        locs = body["records"]["location"]
         out = {}
         for loc in locs:
             el = {e["elementName"]: e["time"][0]["parameter"] for e in loc["weatherElement"]}
@@ -353,9 +358,11 @@ def load_weather():
                 "minT": el.get("MinT",{}).get("parameterName", ""),
                 "maxT": el.get("MaxT",{}).get("parameterName", ""),
             }
-        return out or None
-    except Exception:
-        return None
+        if not out:
+            return None, "API 成功回應但沒有解析出任何縣市資料"
+        return out, None
+    except Exception as e:
+        return None, f"{type(e).__name__}: {e}"
 
 def station_county(dev):
     return "臺東縣" if "蘭嶼" in dev else "屏東縣"
@@ -478,7 +485,7 @@ with n4:
     auth.logout(button_name="登出", location="main")
 
 # ── 天氣列（設定 cwa.api_key 後自動顯示）────────────────────────────────────
-weather = load_weather()
+weather, weather_err = load_weather()
 if weather:
     chips = ""
     for county, wx in weather.items():
@@ -489,6 +496,8 @@ if weather:
                   f'<span style="color:#6b7280;">降雨 {html.escape(str(wx["pop"]))}%・'
                   f'{html.escape(str(wx["minT"]))}~{html.escape(str(wx["maxT"]))}°C</span></span>')
     st.markdown(f'<div style="margin:2px 0 6px 0;">{chips}</div>', unsafe_allow_html=True)
+elif weather_err:
+    st.caption(f"⚠️ 天氣資料讀取失敗：{weather_err}")
 
 st.markdown("<hr>", unsafe_allow_html=True)
 
