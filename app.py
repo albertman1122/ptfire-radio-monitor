@@ -3,9 +3,11 @@ import os
 import time
 import html
 import base64
+import requests
 import streamlit as st
 import streamlit_authenticator as stauth
 import gspread
+import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from google.oauth2.service_account import Credentials
@@ -328,6 +330,95 @@ def load_data():
         if t in df.columns: df[t] = pd.to_numeric(df[t], errors="coerce")
     return df.dropna(subset=["time","device"]).sort_values("time")
 
+# ── 天氣資料（中央氣象署開放資料，30 分鐘快取）────────────────────────────────
+@st.cache_data(ttl=1800)
+def load_weather():
+    """讀取屏東縣／臺東縣 36 小時天氣預報。未設定金鑰時回傳 None（功能自動隱藏）。"""
+    try:
+        key = st.secrets["cwa"]["api_key"]
+    except Exception:
+        return None
+    try:
+        r = requests.get(
+            "https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001",
+            params={"Authorization": key, "locationName": "屏東縣,臺東縣"},
+            timeout=10)
+        locs = r.json()["records"]["location"]
+        out = {}
+        for loc in locs:
+            el = {e["elementName"]: e["time"][0]["parameter"] for e in loc["weatherElement"]}
+            out[loc["locationName"]] = {
+                "wx":   el.get("Wx",  {}).get("parameterName", ""),
+                "pop":  el.get("PoP", {}).get("parameterName", ""),
+                "minT": el.get("MinT",{}).get("parameterName", ""),
+                "maxT": el.get("MaxT",{}).get("parameterName", ""),
+            }
+        return out or None
+    except Exception:
+        return None
+
+def station_county(dev):
+    return "臺東縣" if "蘭嶼" in dev else "屏東縣"
+
+def is_rainy(wx):
+    if not wx: return False
+    pop = int(wx["pop"]) if str(wx["pop"]).isdigit() else 0
+    return ("雨" in wx["wx"]) or pop >= 60
+
+# ── 電池健康度分析（夜間放電斜率）────────────────────────────────────────────
+def battery_health(df):
+    """以 18:00～隔日 06:00 的夜間資料做線性回歸，計算每晚放電斜率（V/小時）。
+    斜率越負代表放電越快；同一站台的斜率逐月變陡即為電池容量衰退徵兆。
+    回傳 (各站摘要 list, 各站每晚明細 dict)。"""
+    out, night_detail = [], {}
+    for dev in df["device"].unique():
+        d = df[df["device"] == dev][["time", "voltage"]].dropna()
+        night = d[(d["time"].dt.hour >= 18) | (d["time"].dt.hour < 6)].copy()
+        if night.empty:
+            out.append({"device": dev, "nights": 0}); continue
+        # 跨午夜歸屬：凌晨資料算前一晚
+        night["night_id"] = (night["time"] - pd.Timedelta(hours=6)).dt.date
+        rows = []
+        for nid, g in night.groupby("night_id"):
+            if len(g) < 5:            # 資料點太少，斜率不可信
+                continue
+            hours = (g["time"] - g["time"].min()).dt.total_seconds() / 3600
+            if hours.max() < 4:       # 覆蓋時間太短
+                continue
+            slope = float(np.polyfit(hours, g["voltage"], 1)[0])
+            rows.append({"night": pd.Timestamp(nid), "slope": slope,
+                         "vmin": float(g["voltage"].min())})
+        nd = pd.DataFrame(rows)
+        night_detail[dev] = nd
+        if nd.empty:
+            out.append({"device": dev, "nights": 0}); continue
+        nd = nd.sort_values("night").reset_index(drop=True)
+        night_detail[dev] = nd
+        recent   = nd.tail(7)
+        rec_rate = float(recent["slope"].median())
+        rec_vmin = float(recent["vmin"].min())
+        trend_pct = None
+        if len(nd) >= 14:
+            base = float(nd.head(max(7, len(nd) // 3))["slope"].median())
+            if base < -0.005:   # 基準期斜率有效才比較
+                # 負值＝惡化幅度：近期斜率比早期更陡 30% → -30
+                trend_pct = (base - rec_rate) / abs(base) * 100
+        out.append({"device": dev, "nights": len(nd), "rate": rec_rate,
+                    "vmin": rec_vmin, "trend": trend_pct})
+    return out, night_detail
+
+def battery_status(h):
+    """依放電速率與劣化趨勢給出健康標籤。"""
+    if h["nights"] < 3:
+        return "資料不足", "gray"
+    rate  = h["rate"]
+    trend = h.get("trend")
+    if rate <= -0.15 or (trend is not None and trend >= 50):
+        return "衰退警訊", "red"
+    if rate <= -0.08 or (trend is not None and trend >= 25):
+        return "需要注意", "yellow"
+    return "狀態良好", "green"
+
 def get_status(row, now):
     if row is None: return "離線","red"
     if (now-row["time"]).total_seconds()/60 > OFFLINE_MINUTES: return "離線","red"
@@ -386,6 +477,19 @@ with n3:
 with n4:
     auth.logout(button_name="登出", location="main")
 
+# ── 天氣列（設定 cwa.api_key 後自動顯示）────────────────────────────────────
+weather = load_weather()
+if weather:
+    chips = ""
+    for county, wx in weather.items():
+        rain_mark = "🌧" if is_rainy(wx) else "☀"
+        chips += (f'<span style="background:#1e2432;border:1px solid #2d3748;border-radius:99px;'
+                  f'padding:4px 14px;margin-right:10px;font-size:0.78rem;color:#d1d5db;">'
+                  f'{rain_mark} {county}：{html.escape(wx["wx"])}　'
+                  f'<span style="color:#6b7280;">降雨 {html.escape(str(wx["pop"]))}%・'
+                  f'{html.escape(str(wx["minT"]))}~{html.escape(str(wx["maxT"]))}°C</span></span>')
+    st.markdown(f'<div style="margin:2px 0 6px 0;">{chips}</div>', unsafe_allow_html=True)
+
 st.markdown("<hr>", unsafe_allow_html=True)
 
 # ── 站台總覽 ─────────────────────────────────────────────────────────────────
@@ -422,6 +526,86 @@ for row_devs in rows:
             if st.button(sname(dev), key=f"c_{dev}", use_container_width=True):
                 st.session_state["sel"] = dev
                 st.rerun()
+
+st.markdown("<hr>", unsafe_allow_html=True)
+
+# ── 電池健康排行榜（預測性維護）──────────────────────────────────────────────
+with st.expander("🔋 電池健康排行榜（夜間放電斜率分析）", expanded=False):
+    st.markdown(
+        "<p style='color:#6b7280;font-size:0.8rem;margin:0 0 10px;'>"
+        "原理：鉛酸電池老化後容量下降，夜間（18:00～06:00）放電速率會逐月變陡。"
+        "系統對每晚的電壓做線性回歸求斜率（V/小時），近 7 晚中位數為目前速率；"
+        "累積兩週以上資料後，會與早期基準比較算出劣化幅度，提早數月預警電池汰換需求。</p>",
+        unsafe_allow_html=True)
+
+    health, night_detail = battery_health(df)
+    order = {"red": 0, "yellow": 1, "green": 2, "gray": 3}
+    ranked = sorted(health, key=lambda h: (order[battery_status(h)[1]],
+                                           h.get("rate", 0)))
+    badge_css = {"red":    ("background:#7f1d1d;color:#fca5a5;"),
+                 "yellow": ("background:#78350f;color:#fcd34d;"),
+                 "green":  ("background:#14532d;color:#4ade80;"),
+                 "gray":   ("background:#374151;color:#9ca3af;")}
+
+    hdr = ('<div style="display:flex;gap:8px;padding:6px 12px;color:#6b7280;font-size:0.74rem;">'
+           '<span style="flex:2;">站台</span><span style="flex:2;">健康狀態</span>'
+           '<span style="flex:2;">夜間放電速率</span><span style="flex:2;">30天劣化幅度</span>'
+           '<span style="flex:2;">夜間最低電壓</span><span style="flex:1;">樣本夜數</span></div>')
+    rows_html = hdr
+    for h in ranked:
+        label, color = battery_status(h)
+        css = badge_css[color]
+        if h["nights"] < 3:
+            rate_s, trend_s, vmin_s = "—", "—", "—"
+        else:
+            rate_s  = f"{h['rate']:.3f} V/h"
+            vmin_s  = f"{h['vmin']:.1f} V"
+            if h.get("trend") is None:
+                trend_s = "累積中（需14晚）"
+            else:
+                arrow = "▲惡化" if h["trend"] > 5 else ("▼改善" if h["trend"] < -5 else "—持平")
+                trend_s = f"{arrow} {abs(h['trend']):.0f}%"
+        rows_html += (
+            f'<div style="display:flex;gap:8px;align-items:center;background:#1e2432;'
+            f'border:1px solid #2d3748;border-radius:8px;padding:9px 12px;margin-bottom:6px;'
+            f'font-size:0.82rem;color:#d1d5db;">'
+            f'<span style="flex:2;font-weight:600;">{html.escape(sname(h["device"]))}</span>'
+            f'<span style="flex:2;"><span style="{css}font-size:0.72rem;font-weight:600;'
+            f'padding:2px 10px;border-radius:4px;">{label}</span></span>'
+            f'<span style="flex:2;">{rate_s}</span>'
+            f'<span style="flex:2;">{trend_s}</span>'
+            f'<span style="flex:2;">{vmin_s}</span>'
+            f'<span style="flex:1;color:#6b7280;">{h["nights"]}</span></div>')
+    st.markdown(rows_html, unsafe_allow_html=True)
+
+    # 單站每晚斜率歷史圖
+    have_data = [h["device"] for h in ranked if h["nights"] >= 3]
+    if have_data:
+        bsel = st.selectbox("檢視單站放電斜率歷史", have_data,
+                            format_func=sname, key="battery_sel")
+        nd = night_detail.get(bsel)
+        if nd is not None and not nd.empty:
+            figb = go.Figure()
+            figb.add_trace(go.Bar(
+                x=nd["night"], y=nd["slope"],
+                marker=dict(color=["#f87171" if s <= -0.15 else
+                                   "#fbbf24" if s <= -0.08 else "#4ade80"
+                                   for s in nd["slope"]]),
+                showlegend=False))
+            figb.add_hline(y=-0.08, line_dash="dot", line_color="#fbbf24",
+                           line_width=1, opacity=0.6)
+            figb.add_hline(y=-0.15, line_dash="dot", line_color="#f87171",
+                           line_width=1, opacity=0.6)
+            figb.update_layout(
+                height=220, margin=dict(t=8, b=8, l=0, r=10),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#111827",
+                font=dict(color="#6b7280", size=11),
+                xaxis=dict(gridcolor="#1f2937", zeroline=False),
+                yaxis=dict(gridcolor="#1f2937", zeroline=False,
+                           title="每晚放電斜率 (V/h)"),
+            )
+            st.plotly_chart(figb, use_container_width=True)
+            st.caption("綠＝正常放電；黃＝偏快（-0.08 V/h 以下）；紅＝過快（-0.15 V/h 以下）。柱狀圖逐月變紅即為電池衰退，建議排入汰換計畫。")
 
 st.markdown("<hr>", unsafe_allow_html=True)
 
@@ -739,6 +923,17 @@ else:
                         lines += [f"① 【警告】電壓 {vl}V 嚴重超過安全上限 {V_DANGER}V，充電控制器限壓功能可能失效，電池有過充損壞風險。",
                                   "② 風險：高｜持續過充將縮短電池壽命，嚴重時可能導致電池膨脹或損壞。",
                                   "③ 建議：立即檢查充電控制器是否正常運作，必要時暫時斷開太陽能板輸入，並安排設備檢修。"]
+
+                    # 天氣歸因：協助分辨「天氣造成的合理低壓」與「設備故障」
+                    wx = (weather or {}).get(station_county(sel))
+                    if wx:
+                        wx_desc = f"{station_county(sel)}預報「{wx['wx']}」（降雨機率 {wx['pop']}%）"
+                        if is_rainy(wx):
+                            lines.append(f"④ 天氣參考：{wx_desc}，日照不足屬合理外因；"
+                                         "若天氣轉晴後半天內電壓仍未回升，才需懷疑太陽能板或充電控制器故障。")
+                        else:
+                            lines.append(f"④ 天氣參考：{wx_desc}，天候良好；"
+                                         "若白天電壓仍偏低，較可能為設備因素而非天氣影響。")
 
                     st.session_state["ai_result"] = "\n".join(lines)
                     st.session_state["ai_station"] = sel
