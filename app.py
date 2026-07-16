@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import time
 import base64
 import streamlit as st
 import streamlit_authenticator as stauth
@@ -338,11 +339,23 @@ def get_status(row, now):
 
 def sname(dev): return dev.replace("無線電中繼台-","")
 
-# ── 載入 ─────────────────────────────────────────────────────────────────────
-try:
-    df = load_data()
-except Exception as e:
-    st.error(f"讀取 Google Sheet 失敗：{e}"); st.stop()
+# ── 載入（重試 3 次，避免 Google API 暫時性錯誤讓整頁直接掛掉）────────────────
+df = None
+load_err = None
+for _attempt in range(3):
+    try:
+        df = load_data()
+        load_err = None
+        break
+    except Exception as e:
+        load_err = e
+        if _attempt < 2:
+            time.sleep(1.5)
+if load_err is not None:
+    st.error(f"讀取 Google Sheet 失敗（已重試 3 次）：{load_err}")
+    if st.button("↺ 重新嘗試"):
+        st.cache_data.clear(); st.rerun()
+    st.stop()
 if df.empty:
     st.warning("尚無資料"); st.stop()
 
@@ -588,7 +601,6 @@ else:
                         rv = [h["v"] for h in hist[-6:]]
                         trend = "上升" if rv[-1]>rv[0] else "下降"
                     nh = datetime.now().hour
-                    ctx = "夜間放電" if nh>=18 or nh<6 else "白天應充電"
                     vl  = hist[-1]["v"] if hist else "N/A"
                     # ── 本地智慧診斷引擎（全情境規則）──
                     lines = []
@@ -671,7 +683,7 @@ else:
                         if is_day and fast_rise:
                             lines += [f"① 白天充電期電壓 {vl}V 快速上升（每筆 {rate:.2f}V），太陽能充電旺盛，電池正積極補電。",
                                       "② 風險：低｜充電狀態良好，需留意是否過衝至上限。",
-                                      "③ 建議：確認充電控制器限壓功能正常運作，避免超過 {V_OVER}V 後持續衝高。"]
+                                      f"③ 建議：確認充電控制器限壓功能正常運作，避免超過 {V_OVER}V 後持續衝高。"]
                         elif is_day and (slow_rise or stable_v):
                             lines += [f"① 白天充電期電壓 {vl}V，充電與負載平衡良好，系統運作正常。",
                                       "② 風險：低｜電壓穩定在正常範圍。",
@@ -710,11 +722,11 @@ else:
                         if is_day and fast_rise:
                             lines += [f"① 白天充電期電壓 {vl}V 且快速上升，電池接近滿充，充電控制器應即將切換至浮充模式。",
                                       "② 風險：低｜正常充飽過程，但需確認控制器正常限壓。",
-                                      "③ 建議：確認充電控制器是否在 {V_OVER}V 附近正常切入限壓保護，避免持續過充。"]
+                                      f"③ 建議：確認充電控制器是否在 {V_OVER}V 附近正常切入限壓保護，避免持續過充。"]
                         elif is_day and stable_v:
                             lines += [f"① 白天充電期電壓 {vl}V 穩定於高壓區，可能為浮充維護狀態，電池已滿電。",
                                       "② 風險：低｜電池滿電，系統良好。",
-                                      "③ 建議：確認充電控制器浮充電壓設定正確（通常 13.5~13.8V），若長期高於 {V_OVER}V 則檢查控制器設定。"]
+                                      f"③ 建議：確認充電控制器浮充電壓設定正確（通常 13.5~13.8V），若長期高於 {V_OVER}V 則檢查控制器設定。"]
                         else:
                             lines += [f"① 電壓 {vl}V 偏高，超過正常上限 {V_OVER}V，趨勢{trend}。",
                                       "② 風險：中｜若長期維持高壓可能損害電池壽命。",
@@ -727,7 +739,6 @@ else:
                                   "③ 建議：立即檢查充電控制器是否正常運作，必要時暫時斷開太陽能板輸入，並安排設備檢修。"]
 
                     st.session_state["ai_result"] = "\n".join(lines)
-                    st.session_state["ai_station"] = sel
                     st.session_state["ai_station"] = sel
                 except Exception as e:
                     st.session_state["ai_result"]  = f"分析失敗：{e}"
