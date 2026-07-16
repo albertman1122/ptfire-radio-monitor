@@ -138,20 +138,10 @@ div[data-testid="stExpander"] summary { color:#9ca3af !important; font-size:0.83
   color:#3a2a20; font-size:1.34rem; font-weight:600; text-align:center; line-height:1.55;
   letter-spacing:0.02em;
 }
-.login-subtitle {
-  color:#a8785c; font-size:0.88rem; text-align:center; margin-top:10px;
-}
 .login-divider {
   width:48px; height:3px; background:linear-gradient(90deg,#f97316,#ef4444);
-  border-radius:2px; margin:16px auto 12px auto;
+  border-radius:2px; margin:16px auto 0 auto;
 }
-.login-tag {
-  display:inline-flex; align-items:center; gap:6px;
-  background:#fff1e0; border:1px solid #ffd8ae; color:#c2410c;
-  font-size:0.74rem; font-weight:600; letter-spacing:0.02em;
-  padding:5px 16px; border-radius:999px; margin:4px auto 0 auto;
-}
-.login-tag-wrap { display:flex; justify-content:center; }
 div[data-testid="stForm"] {
   position:relative; overflow:hidden;
   background:#ffffff; border:1px solid #ffe3ce; border-radius:18px;
@@ -210,9 +200,12 @@ div[data-testid="stForm"] label p {
   color:#a8785c !important; font-size:0.86rem !important; font-weight:500 !important;
   margin-bottom:6px !important;
 }
-div[data-testid="stForm"] div[data-testid="stFormSubmitButton"],
+div[data-testid="stForm"] div[data-testid="stFormSubmitButton"] {
+  display:flex !important; align-items:center !important; gap:18px !important;
+  width:100% !important; margin-top:22px !important;
+}
 div[data-testid="stForm"] div[data-testid="stFormSubmitButton"] > div {
-  width:100% !important;
+  width:auto !important; flex:0 0 auto !important;
 }
 div[data-testid="stForm"] div[data-testid="stFormSubmitButton"] button,
 div[data-testid="stForm"] button[kind="primaryFormSubmit"],
@@ -220,9 +213,10 @@ div[data-testid="stForm"] button[kind="secondaryFormSubmit"] {
   background:linear-gradient(135deg,#fb923c,#ef4444) !important;
   border:none !important; color:#fff !important; font-weight:600 !important;
   font-size:1.02rem !important;
-  border-radius:10px !important; height:54px !important; width:100% !important;
-  margin-top:16px !important; box-shadow:0 8px 20px rgba(239,68,68,0.28) !important;
+  border-radius:10px !important; height:54px !important; width:150px !important;
+  margin-top:0 !important; box-shadow:0 8px 20px rgba(239,68,68,0.28) !important;
   transition:filter 0.15s, transform 0.12s !important;
+  flex:0 0 auto !important;
 }
 div[data-testid="stForm"] div[data-testid="stFormSubmitButton"] button:hover,
 div[data-testid="stForm"] button[kind="primaryFormSubmit"]:hover,
@@ -231,6 +225,13 @@ div[data-testid="stForm"] button[kind="secondaryFormSubmit"]:hover {
 }
 div[data-testid="stForm"] div[data-testid="stFormSubmitButton"] button p {
   font-size:1.02rem !important; font-weight:600 !important;
+}
+/* 登入按鈕旁的溫暖歡迎文字 */
+div[data-testid="stForm"] div[data-testid="stFormSubmitButton"]::after {
+  content:"嗨，歡迎回來！\\A 24 小時 AI 智慧監控";
+  white-space:pre-line;
+  color:#a8785c; font-size:0.8rem; line-height:1.6; font-weight:500;
+  flex:1 1 auto;
 }
 .login-footnote {
   text-align:center; color:#b99a86; font-size:0.78rem; margin-top:20px;
@@ -278,8 +279,6 @@ if not status:
     <div class="login-title">屏東縣政府消防局</div>
     <div class="login-title">無線電中繼台 AI 通訊監控平台</div>
     <div class="login-divider"></div>
-    <div class="login-subtitle">嗨，歡迎回來！請登入以檢視即時監控資訊</div>
-    <div class="login-tag-wrap"><span class="login-tag">24 小時即時監控・AI 智慧診斷</span></div>
   </div>
 </div>""", unsafe_allow_html=True)
 
