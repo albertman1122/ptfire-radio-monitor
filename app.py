@@ -160,14 +160,19 @@ div[data-testid="stForm"] h3 {
   display:none !important;
 }
 /* 帳號／密碼輸入框：統一高度與樣式（含密碼欄的顯示/隱藏眼睛圖示）*/
+/* 只在最外層容器畫框，避免內層 base-input 各自出現一個方框 */
 div[data-testid="stForm"] div[data-baseweb="input"],
-div[data-testid="stForm"] div[data-baseweb="base-input"],
 div[data-testid="stForm"] [data-testid="stTextInputRootElement"],
 div[data-testid="stForm"] div[data-testid="stTextInput"] > div {
   background:#fff9f5 !important; border:1px solid #f3dcc9 !important;
   border-radius:10px !important; height:54px !important;
   display:flex !important; align-items:center !important;
   box-sizing:border-box !important;
+}
+div[data-testid="stForm"] div[data-baseweb="base-input"] {
+  background:transparent !important; border:none !important; border-radius:0 !important;
+  height:100% !important; flex:1 1 auto !important;
+  display:flex !important; align-items:center !important;
 }
 div[data-testid="stForm"] div[data-baseweb="input"]:focus-within,
 div[data-testid="stForm"] [data-testid="stTextInputRootElement"]:focus-within {
