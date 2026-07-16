@@ -121,7 +121,7 @@ div[data-testid="stExpander"] summary { color:#9ca3af !important; font-size:0.83
 .login-logo-wrap {
   display:flex; flex-direction:column; align-items:center; margin-bottom:22px;
 }
-.login-mascot { width:128px; height:128px; margin-bottom:14px; filter:drop-shadow(0 10px 22px rgba(230,80,40,0.28)); }
+.login-mascot { width:172px; height:172px; margin-bottom:16px; filter:drop-shadow(0 14px 28px rgba(220,38,38,0.25)); }
 .login-title {
   color:#3a2a20; font-size:1.34rem; font-weight:600; text-align:center; line-height:1.55;
   letter-spacing:0.02em;
@@ -131,13 +131,25 @@ div[data-testid="stExpander"] summary { color:#9ca3af !important; font-size:0.83
 }
 .login-divider {
   width:48px; height:3px; background:linear-gradient(90deg,#f97316,#ef4444);
-  border-radius:2px; margin:16px auto 0 auto;
+  border-radius:2px; margin:16px auto 12px auto;
 }
+.login-tag {
+  display:inline-flex; align-items:center; gap:6px;
+  background:#fff1e0; border:1px solid #ffd8ae; color:#c2410c;
+  font-size:0.74rem; font-weight:600; letter-spacing:0.02em;
+  padding:5px 16px; border-radius:999px; margin:4px auto 0 auto;
+}
+.login-tag-wrap { display:flex; justify-content:center; }
 div[data-testid="stForm"] {
+  position:relative; overflow:hidden;
   background:#ffffff; border:1px solid #ffe3ce; border-radius:18px;
   padding:40px 36px 34px 36px !important;
   box-shadow:0 20px 50px rgba(230,120,60,0.16), 0 2px 8px rgba(0,0,0,0.04);
   max-width:460px; margin:0 auto;
+}
+div[data-testid="stForm"]::before {
+  content:""; position:absolute; top:0; left:0; right:0; height:5px;
+  background:linear-gradient(90deg,#fb923c,#ef4444,#fb923c);
 }
 /* 隱藏套件內建的「Login」標題，避免與上方自訂標題重複 */
 div[data-testid="stForm"] h1,
@@ -195,7 +207,7 @@ div[data-testid="stForm"] div[data-testid="stFormSubmitButton"] button p {
 .login-footnote {
   text-align:center; color:#b99a86; font-size:0.78rem; margin-top:20px;
 }
-</style</style>
+</style>
 """, unsafe_allow_html=True)
 
 # ── 常數 ─────────────────────────────────────────────────────────────────────
@@ -234,47 +246,71 @@ if not status:
     st.markdown("""
 <div class="login-hero">
   <div class="login-logo-wrap">
-    <svg class="login-mascot" viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg">
+    <svg class="login-mascot" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="badgeGrad" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="cardGrad" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="#fb7a3c"/>
-      <stop offset="100%" stop-color="#e63946"/>
+      <stop offset="100%" stop-color="#dc2626"/>
+    </linearGradient>
+    <linearGradient id="shirtGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f97316"/>
+      <stop offset="100%" stop-color="#c2410c"/>
     </linearGradient>
   </defs>
-  <circle cx="70" cy="70" r="68" fill="url(#badgeGrad)"/>
-  <path d="M14 88a56 56 0 0 0 112 0" fill="none" stroke="#ffffff" stroke-width="7" opacity="0.14"/>
 
-  <!-- 身體／制服 -->
-  <path d="M32 140 C34 108 50 96 70 96 C90 96 106 108 108 140 Z" fill="#ea580c"/>
-  <path d="M58 100 L70 116 L82 100 L74 96 L66 96 Z" fill="#fff7ed"/>
-  <rect x="44" y="112" width="16" height="13" rx="3" fill="#c2410c"/>
-  <rect x="80" y="112" width="16" height="13" rx="3" fill="#c2410c"/>
-  <rect x="60" y="120" width="20" height="10" rx="2.5" fill="#fff7ed"/>
-  <rect x="63" y="123.4" width="14" height="3.2" rx="1.4" fill="#ea580c"/>
+  <rect x="3" y="3" width="214" height="214" rx="34" fill="url(#cardGrad)"/>
+  <circle cx="110" cy="146" r="74" fill="#ffffff" opacity="0.95"/>
+
+  <!-- 四個主題徽章：呼應儀表板監測項目（通訊訊號／電壓／溫度／太陽能）-->
+  <circle cx="34" cy="40" r="17" fill="#ffffff" opacity="0.22"/>
+  <path d="M24 44a14 14 0 0 1 20 0M27 39a19 19 0 0 1 14 0M30 34a24 24 0 0 1 8 0"
+        stroke="#ffffff" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+
+  <circle cx="186" cy="40" r="17" fill="#ffffff" opacity="0.22"/>
+  <path d="M189 27 L180 42 L187 42 L185 53 L196 36 L189 36 Z" fill="#ffffff"/>
+
+  <circle cx="30" cy="178" r="17" fill="#ffffff" opacity="0.22"/>
+  <rect x="27" y="167" width="6" height="15" rx="3" fill="#ffffff"/>
+  <circle cx="30" cy="184" r="5.2" fill="#ffffff"/>
+
+  <circle cx="190" cy="178" r="17" fill="#ffffff" opacity="0.22"/>
+  <circle cx="190" cy="178" r="6" fill="#ffffff"/>
+  <path d="M190 166v4M190 186v4M178 178h4M198 178h4M182 170l2.8 2.8M195.2 183.2l2.8 2.8M198 170l-2.8 2.8M184.8 183.2l-2.8 2.8"
+        stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- 制服／身體 -->
+  <path d="M62 222 C64 180 84 158 110 158 C136 158 156 180 158 222 Z" fill="url(#shirtGrad)"/>
+  <path d="M92 162 L110 182 L128 162 L118 158 L102 158 Z" fill="#fff7ed"/>
+  <rect x="76" y="176" width="20" height="16" rx="3.5" fill="#c2410c"/>
+  <rect x="124" y="176" width="20" height="16" rx="3.5" fill="#c2410c"/>
+  <rect x="96" y="188" width="28" height="12" rx="3" fill="#fff7ed"/>
+  <rect x="100" y="192.5" width="20" height="3.4" rx="1.5" fill="#ea580c"/>
 
   <!-- 無線電對講機（呼應通訊主題） -->
-  <rect x="90" y="100" width="13" height="20" rx="3" fill="#1f2937"/>
-  <rect x="94.5" y="96" width="4" height="7" rx="1.5" fill="#1f2937"/>
-  <circle cx="96.5" cy="110" r="1.6" fill="#ef4444"/>
+  <rect x="150" y="160" width="16" height="24" rx="3.5" fill="#1f2937"/>
+  <rect x="155.5" y="154" width="5" height="8" rx="1.8" fill="#1f2937"/>
+  <circle cx="158" cy="172" r="2" fill="#ef4444"/>
 
   <!-- 頭盔 -->
-  <path d="M42 58 Q70 26 98 58 L96 66 Q70 54 44 66 Z" fill="#1f2937"/>
-  <rect x="40" y="63" width="60" height="7" rx="3.5" fill="#111827"/>
-  <circle cx="70" cy="46" r="6" fill="#fbbf24"/>
-  <path d="M67 43 L70 49 L73 43 Z" fill="#c2410c"/>
+  <path d="M74 96 Q110 54 146 96 L144 106 Q110 92 76 106 Z" fill="#1f2937"/>
+  <rect x="72" y="102" width="76" height="9" rx="4.5" fill="#111827"/>
+  <circle cx="110" cy="80" r="8" fill="#fbbf24"/>
+  <path d="M106 76 L110 84 L114 76 Z" fill="#c2410c"/>
 
-  <!-- 臉 -->
-  <circle cx="70" cy="82" r="24" fill="#ffd9b3"/>
-  <path d="M59 80 q4 -5 8 0" stroke="#7c3f1d" stroke-width="2.4" fill="none" stroke-linecap="round"/>
-  <path d="M73 80 q4 -5 8 0" stroke="#7c3f1d" stroke-width="2.4" fill="none" stroke-linecap="round"/>
-  <path d="M60 90 q10 8 20 0" stroke="#7c3f1d" stroke-width="2.6" fill="none" stroke-linecap="round"/>
-  <circle cx="54" cy="88" r="3.6" fill="#fca5a5" opacity="0.65"/>
-  <circle cx="86" cy="88" r="3.6" fill="#fca5a5" opacity="0.65"/>
+  <!-- 臉：左暗右亮的立體光影 -->
+  <circle cx="110" cy="130" r="32" fill="#ffd9b3"/>
+  <path d="M110 98a32 32 0 0 0 0 64z" fill="#f0b98a"/>
+  <path d="M97 128 q5 -6 10 0" stroke="#7c3f1d" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M113 128 q5 -6 10 0" stroke="#7c3f1d" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M98 140 q12 10 24 0" stroke="#7c3f1d" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+  <circle cx="90" cy="136" r="4.6" fill="#fca5a5" opacity="0.6"/>
+  <circle cx="130" cy="136" r="4.6" fill="#fca5a5" opacity="0.6"/>
 </svg>
     <div class="login-title">屏東縣政府消防局</div>
     <div class="login-title">無線電中繼台 AI 通訊監控平台</div>
     <div class="login-divider"></div>
     <div class="login-subtitle">嗨，歡迎回來！請登入以檢視即時監控資訊</div>
+    <div class="login-tag-wrap"><span class="login-tag">24 小時即時監控・AI 智慧診斷</span></div>
   </div>
 </div>""", unsafe_allow_html=True)
 
