@@ -3,8 +3,26 @@ var LOG_SHEET   = "監控紀錄Log";
 var ALERT_SHEET = "告警事件記錄";
 var VOLTAGE_MIN = 13.0;
 var VOLTAGE_MAX = 13.8;
-var GEMINI_KEY  = "AQ.Ab8RN6LhkYIegvhqbYFFAP1_Ain6nA1gt2kJywVuM1-KrL73sA";
 var GEMINI_URL  = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=";
+
+// Gemini API 金鑰改存在「指令碼屬性」（Script Properties），不要寫死在程式碼裡。
+// 設定方式：Apps Script 編輯器左側「專案設定」→「指令碼屬性」→
+//   新增屬性，名稱填 GEMINI_KEY，值填你的金鑰 → 儲存。
+// 或在編輯器裡執行一次 setGeminiKey_('你的金鑰')（見檔案最下方），執行後可刪除該次呼叫。
+function getGeminiKey_() {
+  var key = PropertiesService.getScriptProperties().getProperty("GEMINI_KEY");
+  if (!key) {
+    throw new Error("尚未設定 GEMINI_KEY，請至「專案設定→指令碼屬性」新增，或執行 setGeminiKey_() 設定。");
+  }
+  return key;
+}
+
+// 一次性設定用：在 Apps Script 編輯器手動執行 setGeminiKey_('AQ.xxxxxxxx')，
+// 執行成功後金鑰即安全存放於指令碼屬性中，可以把這行呼叫刪掉或留著（不影響安全性，
+// 因為金鑰只會存在你貼上執行的當下，不會被提交進 Git）。
+function setGeminiKey_(key) {
+  PropertiesService.getScriptProperties().setProperty("GEMINI_KEY", key);
+}
 
 function doGet(e) {
   return HtmlService.createHtmlOutputFromFile("index")
@@ -166,7 +184,7 @@ function getAlertDiagnosis(alertIdx) {
       generationConfig: { temperature: 0.3, maxOutputTokens: 512 }
     };
 
-    var resp = UrlFetchApp.fetch(GEMINI_URL + GEMINI_KEY, {
+    var resp = UrlFetchApp.fetch(GEMINI_URL + getGeminiKey_(), {
       method: "post",
       contentType: "application/json",
       payload: JSON.stringify(payload),

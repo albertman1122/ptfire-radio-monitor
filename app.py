@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import time
+import html
 import base64
 import streamlit as st
 import streamlit_authenticator as stauth
@@ -359,7 +360,8 @@ if load_err is not None:
 if df.empty:
     st.warning("尚無資料"); st.stop()
 
-now     = datetime.utcnow()
+now     = datetime.utcnow() + timedelta(hours=8)  # Asia/Taipei（UTC+8）；Google Sheet 裡的時間戳記是台灣本地時間，
+                                                   # 必須用同時區比較，否則離線偵測／時間篩選會整整偏差 8 小時
 latest  = {d: df[df["device"]==d].iloc[-1] for d in df["device"].unique()}
 data_latest = df["time"].max()  # 整個資料集最新一筆的時間
 stations = STATION_ORDER + [d for d in df["device"].unique() if d not in STATION_ORDER]
@@ -530,7 +532,7 @@ else:
             st.markdown(f"<p style='color:#9ca3af;font-size:0.82rem;margin:0 0 8px;'>近 {hours} 小時共 {total_err} 筆異常，最新在上：</p>",
                         unsafe_allow_html=True)
             for _, erow in err_sub.sort_values("time", ascending=False).head(50).iterrows():
-                msg   = str(erow.get("error_info","")).strip()
+                msg   = html.escape(str(erow.get("error_info","")).strip())
                 ts    = erow["time"].strftime("%Y-%m-%d %H:%M:%S")
                 volt  = f"{erow['voltage']:.1f}V" if not pd.isna(erow.get("voltage")) else "—"
                 # 簡易嚴重度判斷
@@ -600,7 +602,7 @@ else:
                     if len(hist)>=2:
                         rv = [h["v"] for h in hist[-6:]]
                         trend = "上升" if rv[-1]>rv[0] else "下降"
-                    nh = datetime.now().hour
+                    nh = now.hour
                     vl  = hist[-1]["v"] if hist else "N/A"
                     # ── 本地智慧診斷引擎（全情境規則）──
                     lines = []
@@ -759,7 +761,7 @@ else:
     <span style="background:{rb};color:{rc};font-size:0.72rem;padding:2px 10px;
       border-radius:4px;font-weight:600;">風險：{risk}</span>
     <span style="color:#4b5563;font-size:0.72rem;margin-left:auto;">
-      {datetime.now().strftime('%Y-%m-%d %H:%M')} · {sname(sel)}</span>
+      {now.strftime('%Y-%m-%d %H:%M')} · {sname(sel)}</span>
   </div>
   <div style="color:#d1d5db;font-size:0.88rem;line-height:1.85;white-space:pre-wrap;">{result}</div>
 </div>""", unsafe_allow_html=True)
