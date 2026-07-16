@@ -108,28 +108,36 @@ hr { border-color:#2d3748 !important; margin:12px 0 !important; }
 div[data-testid="stExpander"] { background:#1e2432; border:1px solid #2d3748; border-radius:8px; }
 div[data-testid="stExpander"] summary { color:#9ca3af !important; font-size:0.83rem !important; }
 
-/* ── 登入頁美化（沉穩石墨藍專業色系）── */
+/* ── 登入頁美化（明亮溫暖・消防主題）── */
+/* 只在登入頁（含 .login-hero）時，把整體背景換成明亮暖色系 */
+.stApp:has(.login-hero) {
+  background:radial-gradient(1100px 620px at 50% -8%, #fff1e0 0%, #fff8f0 42%, #fdf6ee 100%) !important;
+}
+.stApp:has(.login-hero) .block-container { padding-top:2vh !important; }
+
 .login-hero {
-  max-width:440px; margin:7vh auto 0 auto; padding:0 8px;
+  max-width:460px; margin:5vh auto 0 auto; padding:0 8px;
 }
 .login-logo-wrap {
-  display:flex; flex-direction:column; align-items:center; margin-bottom:30px;
+  display:flex; flex-direction:column; align-items:center; margin-bottom:22px;
 }
+.login-mascot { width:104px; height:104px; margin-bottom:14px; filter:drop-shadow(0 10px 22px rgba(230,80,40,0.28)); }
 .login-title {
-  color:#eef2f7; font-size:1.32rem; font-weight:600; text-align:center; line-height:1.55;
+  color:#3a2a20; font-size:1.34rem; font-weight:600; text-align:center; line-height:1.55;
   letter-spacing:0.02em;
 }
 .login-subtitle {
-  color:#7c8a9e; font-size:0.86rem; text-align:center; margin-top:10px;
+  color:#a8785c; font-size:0.88rem; text-align:center; margin-top:10px;
 }
 .login-divider {
-  width:44px; height:3px; background:#3d5a80; border-radius:2px; margin:14px auto 0 auto;
+  width:48px; height:3px; background:linear-gradient(90deg,#f97316,#ef4444);
+  border-radius:2px; margin:16px auto 0 auto;
 }
 div[data-testid="stForm"] {
-  background:#1c2431; border:1px solid #2e3a4c; border-radius:14px;
+  background:#ffffff; border:1px solid #ffe3ce; border-radius:18px;
   padding:40px 36px 34px 36px !important;
-  box-shadow:0 16px 48px rgba(0,0,0,0.4);
-  max-width:440px; margin:0 auto;
+  box-shadow:0 20px 50px rgba(230,120,60,0.16), 0 2px 8px rgba(0,0,0,0.04);
+  max-width:460px; margin:0 auto;
 }
 /* 隱藏套件內建的「Login」標題，避免與上方自訂標題重複 */
 div[data-testid="stForm"] h1,
@@ -140,26 +148,26 @@ div[data-testid="stForm"] h3 {
 /* 帳號／密碼輸入框：統一高度與樣式（含密碼欄的顯示/隱藏眼睛圖示）*/
 div[data-testid="stForm"] div[data-baseweb="input"],
 div[data-testid="stForm"] div[data-baseweb="base-input"] {
-  background:#141b26 !important; border:1px solid #364150 !important;
-  border-radius:9px !important; height:54px !important;
+  background:#fff9f5 !important; border:1px solid #f3dcc9 !important;
+  border-radius:10px !important; height:54px !important;
   display:flex !important; align-items:center !important;
   box-sizing:border-box !important;
 }
 div[data-testid="stForm"] div[data-baseweb="input"]:focus-within {
-  border-color:#5b84b1 !important; box-shadow:0 0 0 3px rgba(91,132,177,0.22) !important;
+  border-color:#f97316 !important; box-shadow:0 0 0 3px rgba(249,115,22,0.16) !important;
 }
 div[data-testid="stForm"] input {
   background:transparent !important; border:none !important;
-  color:#eef2f7 !important; font-size:1.02rem !important;
+  color:#3a2a20 !important; font-size:1.02rem !important;
   padding:0 16px !important; height:100% !important; line-height:normal !important;
 }
 div[data-testid="stForm"] input:focus { box-shadow:none !important; }
 div[data-testid="stForm"] button[title*="password"],
 div[data-testid="stForm"] div[data-baseweb="input"] button {
-  background:transparent !important; border:none !important; color:#7c8a9e !important;
+  background:transparent !important; border:none !important; color:#b98a6f !important;
 }
 div[data-testid="stForm"] label p {
-  color:#9aa8bc !important; font-size:0.86rem !important; font-weight:500 !important;
+  color:#a8785c !important; font-size:0.86rem !important; font-weight:500 !important;
   margin-bottom:6px !important;
 }
 div[data-testid="stForm"] div[data-testid="stFormSubmitButton"],
@@ -169,25 +177,25 @@ div[data-testid="stForm"] div[data-testid="stFormSubmitButton"] > div {
 div[data-testid="stForm"] div[data-testid="stFormSubmitButton"] button,
 div[data-testid="stForm"] button[kind="primaryFormSubmit"],
 div[data-testid="stForm"] button[kind="secondaryFormSubmit"] {
-  background:#3d5a80 !important;
+  background:linear-gradient(135deg,#fb923c,#ef4444) !important;
   border:none !important; color:#fff !important; font-weight:600 !important;
   font-size:1.02rem !important;
-  border-radius:9px !important; height:54px !important; width:100% !important;
-  margin-top:16px !important; box-shadow:0 4px 14px rgba(61,90,128,0.4) !important;
-  transition:background 0.15s, transform 0.12s !important;
+  border-radius:10px !important; height:54px !important; width:100% !important;
+  margin-top:16px !important; box-shadow:0 8px 20px rgba(239,68,68,0.28) !important;
+  transition:filter 0.15s, transform 0.12s !important;
 }
 div[data-testid="stForm"] div[data-testid="stFormSubmitButton"] button:hover,
 div[data-testid="stForm"] button[kind="primaryFormSubmit"]:hover,
 div[data-testid="stForm"] button[kind="secondaryFormSubmit"]:hover {
-  background:#4a6b96 !important; transform:translateY(-1px);
+  filter:brightness(1.06); transform:translateY(-1px);
 }
 div[data-testid="stForm"] div[data-testid="stFormSubmitButton"] button p {
   font-size:1.02rem !important; font-weight:600 !important;
 }
 .login-footnote {
-  text-align:center; color:#5b6779; font-size:0.78rem; margin-top:20px;
+  text-align:center; color:#b99a86; font-size:0.78rem; margin-top:20px;
 }
-</style>
+</style</style>
 """, unsafe_allow_html=True)
 
 # ── 常數 ─────────────────────────────────────────────────────────────────────
@@ -226,10 +234,26 @@ if not status:
     st.markdown("""
 <div class="login-hero">
   <div class="login-logo-wrap">
+    <svg class="login-mascot" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="60" cy="60" r="58" fill="#fff3e8"/>
+  <circle cx="60" cy="60" r="58" fill="none" stroke="#ffd8b0" stroke-width="2"/>
+  <path d="M60 22c10 12 18 20 18 32a18 18 0 1 1-36 0c0-6 2-10 5-14 1 6 4 8 6 8 -1-8 1-16 7-26z"
+        fill="#fb923c"/>
+  <path d="M60 40c5 7 9 12 9 19a9 9 0 1 1-18 0c0-3 1-5 2.5-7 .5 3 2 4 3 4 -1-5 .5-10 3.5-16z"
+        fill="#fde68a"/>
+  <circle cx="52" cy="70" r="2.6" fill="#7c3f1d"/>
+  <circle cx="68" cy="70" r="2.6" fill="#7c3f1d"/>
+  <path d="M53 78c3 3 11 3 14 0" stroke="#7c3f1d" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <circle cx="46" cy="76" r="3.2" fill="#fca5a5" opacity="0.7"/>
+  <circle cx="74" cy="76" r="3.2" fill="#fca5a5" opacity="0.7"/>
+  <path d="M34 100c8-6 44-6 52 0" stroke="#ef4444" stroke-width="6" fill="none" stroke-linecap="round"/>
+  <path d="M38 96a24 10 0 0 1 44 0" fill="#ef4444"/>
+  <rect x="56" y="88" width="8" height="6" rx="1.5" fill="#fde68a"/>
+</svg>
     <div class="login-title">屏東縣政府消防局</div>
     <div class="login-title">無線電中繼台 AI 通訊監控平台</div>
     <div class="login-divider"></div>
-    <div class="login-subtitle">請登入以檢視即時監控資訊</div>
+    <div class="login-subtitle">嗨，歡迎回來！請登入以檢視即時監控資訊</div>
   </div>
 </div>""", unsafe_allow_html=True)
 
