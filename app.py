@@ -491,33 +491,6 @@ def temp_status(h):
         return "需要注意", "yellow"
     return "狀態良好", "green"
 
-# ── 同儕比較（群體離群偵測）─────────────────────────────────────────────────
-def peer_comparison(latest, now):
-    """13 站同處屏東、天氣相近，理論上電壓應相去不遠。
-    以「全體中位數 ± MAD 穩健標準差」找出偏離群體的站台——
-    即使其電壓仍在絕對正常範圍內，相對群體的離群就是早期劣化訊號。
-    回傳依偏離程度排序的 DataFrame，站數不足（<5 站在線）時回傳 None。"""
-    vals = {}
-    for dev, row in latest.items():
-        if row is None:
-            continue
-        if (now - row["time"]).total_seconds() / 60 > OFFLINE_MINUTES:
-            continue
-        v = row.get("voltage")
-        if pd.isna(v):
-            continue
-        vals[dev] = float(v)
-    if len(vals) < 5:
-        return None
-    s   = pd.Series(vals)
-    med = float(s.median())
-    mad = float((s - med).abs().median()) * 1.4826
-    if mad < 0.05:          # 全體幾乎一致時，避免除以趨近 0 造成假警報
-        mad = 0.05
-    z = (s - med) / mad
-    out = pd.DataFrame({"voltage": s, "dev_v": s - med, "z": z})
-    return out.sort_values("z"), med
-
 def get_status(row, now):
     if row is None: return "離線","red"
     if (now-row["time"]).total_seconds()/60 > OFFLINE_MINUTES: return "離線","red"
@@ -776,54 +749,6 @@ with st.expander("🌡 溫度健康分析（放大器散熱劣化偵測）", exp
             st.plotly_chart(figt, use_container_width=True)
             st.caption("各線代表該通道相對於四路平均的溫差。水平走勢＝正常；"
                        "某一條線持續向上爬＝該級放大器散熱劣化，建議安排檢查。")
-
-# ── 同儕比較（群體離群偵測）──────────────────────────────────────────────────
-with st.expander("📊 同儕比較（群體離群偵測）", expanded=False):
-    st.markdown(
-        "<p style='color:#6b7280;font-size:0.8rem;margin:0 0 10px;'>"
-        "原理：13 站同處屏東地區、天氣相近，電壓理論上應相去不遠。"
-        "以全體中位數 ± 穩健標準差（MAD）評分，即使某站電壓仍在絕對正常範圍內，"
-        "「明顯偏離群體」本身就是早期劣化訊號，能抓到固定閾值抓不到的問題。</p>",
-        unsafe_allow_html=True)
-
-    pc = peer_comparison(latest, now)
-    if pc is None:
-        st.info("在線站台不足 5 站，樣本太少無法進行群體比較。")
-    else:
-        pc_df, pc_med = pc
-        flagged = pc_df[pc_df["z"].abs() >= 1.5]
-        if flagged.empty:
-            st.markdown(
-                f"<p style='color:#4ade80;font-size:0.85rem;'>✅ 全體 {len(pc_df)} 個在線站台電壓分布一致"
-                f"（中位數 {pc_med:.1f}V），無離群站台。</p>", unsafe_allow_html=True)
-        else:
-            for dev, r in flagged.iterrows():
-                sev = ("🔴 離群" if abs(r["z"]) >= 2.5 else "🟡 偏離")
-                direction = "低於" if r["dev_v"] < 0 else "高於"
-                st.markdown(
-                    f"<p style='color:#fbbf24;font-size:0.85rem;margin:2px 0;'>{sev}："
-                    f"<b>{html.escape(sname(dev))}</b> {r['voltage']:.1f}V，"
-                    f"{direction}群體中位數 {abs(r['dev_v']):.1f}V（{abs(r['z']):.1f} 個穩健標準差）"
-                    f"</p>", unsafe_allow_html=True)
-
-        figp = go.Figure()
-        figp.add_trace(go.Bar(
-            x=[sname(d) for d in pc_df.index], y=pc_df["dev_v"],
-            marker=dict(color=["#f87171" if abs(z) >= 2.5 else
-                               "#fbbf24" if abs(z) >= 1.5 else "#4ade80"
-                               for z in pc_df["z"]]),
-            showlegend=False))
-        figp.update_layout(
-            height=220, margin=dict(t=8, b=8, l=0, r=10),
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#111827",
-            font=dict(color="#6b7280", size=11),
-            xaxis=dict(gridcolor="#1f2937", zeroline=False),
-            yaxis=dict(gridcolor="#1f2937", zeroline=True, zerolinecolor="#374151",
-                       title=f"與群體中位數 {pc_med:.1f}V 的差距 (V)"),
-        )
-        st.plotly_chart(figp, use_container_width=True)
-        st.caption("綠＝與群體一致；黃＝偏離 1.5 個穩健標準差；紅＝偏離 2.5 個以上（離群）。"
-                   "離線站台不列入比較。")
 
 st.markdown("<hr>", unsafe_allow_html=True)
 
